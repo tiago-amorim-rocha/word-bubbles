@@ -1,0 +1,71 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover" />
+
+  <title>Hello World</title>
+
+  <!-- App appearance -->
+  <meta name="theme-color" content="#0f1115">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+
+  <!-- Icons -->
+  <link rel="apple-touch-icon" href="icons/icon-512.png">
+  <link rel="manifest" href="./manifest.json">
+
+  <!-- Style -->
+  <style>
+    html, body {
+      margin: 0;
+      padding: 0;
+      height: 100dvh;
+      background: #0f1115;
+      color: #eee;
+      overflow: hidden;
+      position: fixed;
+      width: 100%;
+    }
+    canvas {
+      display: block;
+      width: 100dvw;
+      height: 100dvh;
+      touch-action: none;
+      position: absolute;
+      top: 0;
+      left: 0;
+    }
+  </style>
+</head>
+
+<body>
+  <canvas id="game"></canvas>
+
+  <!-- Matter.js Physics Engine -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/matter-js/0.19.0/matter.min.js"></script>
+
+  <!-- Auto-versioned module loader (with silent fallback) -->
+  <script>
+  (async () => {
+    try {
+      const res = await fetch('./version.txt', { cache: 'no-store' });
+      const v = res.ok ? (await res.text()).trim() : String(Date.now());
+      window.__BUILD = v;
+      const s = document.createElement('script');
+      s.type = 'module';
+      s.src = `./game.js?v=${encodeURIComponent(v)}`;
+      document.head.appendChild(s);
+    } catch (err) {
+      // Silent fallback if version.txt is missing
+      console.warn('version.txt missing, using fallback timestamp');
+      const s = document.createElement('script');
+      s.type = 'module';
+      s.src = `./game.js?v=${Date.now()}`;
+      document.head.appendChild(s);
+    }
+  })();
+  </script>
+</body>
+</html>
