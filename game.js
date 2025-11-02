@@ -12,7 +12,7 @@ const scoringModule = await import(`./scoring.js?v=${v}`);
 
 const { initDebugConsole } = debugConsoleModule;
 const { letterBag } = letterBagModule;
-const { PHYSICS, BALL, SPAWN, SELECTION, SCORE, DANGER, FREEZE, getColorForLetter, getRadiusForLetter } = configModule;
+const { PHYSICS, BALL, SPAWN, SELECTION, SCORE, DANGER, DOUBLE_TAP, getColorForLetter, getRadiusForLetter } = configModule;
 const { engine, createWalls, createBallBody, createPhysicsInterface, updatePhysics, addToWorld, removeFromWorld } = physicsModule;
 const { initSelection, handleTouchStart, handleTouchMove, handleTouchEnd, getSelection, getTouchPosition, isSelectionActive, getSelectedWord } = selectionModule;
 const { wordValidator } = wordValidatorModule;
@@ -118,73 +118,48 @@ try {
   let dangerStartTime = null; // When first ball entered danger zone
   let ballsInDanger = new Set(); // Track which balls are currently in danger
 
-  // Freeze feature tracking
+  // Double-tap delete tracking
   let lastTapTime = 0;
   let lastTappedBall = null;
-  const frozenBalls = new Map(); // Map of ball -> { freezeTime, originalStatic }
 
   // Expose physics interface to debug console
   createPhysicsInterface(balls, walls);
 
-  // Freeze/unfreeze functions
-  function freezeBall(ball) {
+  // Delete ball function
+  function deleteBall(ball) {
     if (!ball || !ball.body) {
-      console.log('[FREEZE] ❌ Cannot freeze - ball or body is null');
+      console.log('[DELETE] ❌ Cannot delete - ball or body is null');
       return;
     }
 
-    // Store original state and freeze time
-    frozenBalls.set(ball, {
-      freezeTime: Date.now(),
-      originalStatic: ball.body.isStatic,
-      originalVelocity: { x: ball.body.velocity.x, y: ball.body.velocity.y }
-    });
+    console.log(`[DELETE] 🗑️ Deleting ball: ${ball.letter} at (${Math.round(ball.x)}, ${Math.round(ball.y)})`);
 
-    // Make ball static (frozen in place)
-    Matter.Body.setStatic(ball.body, true);
+    // Remove from Matter.js world
+    if (ball.body) {
+      removeFromWorld(ball.body);
+    }
 
-    console.log(`[FREEZE] ❄️ Froze ball: ${ball.letter} at (${Math.round(ball.x)}, ${Math.round(ball.y)}) | Total frozen: ${frozenBalls.size}`);
+    // Return letter to bag
+    letterBag.return(ball.letter);
+
+    // Remove from balls array
+    const index = balls.indexOf(ball);
+    if (index > -1) {
+      balls.splice(index, 1);
+    }
+
+    console.log(`[DELETE] ✓ Ball deleted | ${balls.length} balls remaining`);
+
+    // Spawn two new balls
+    spawnTwoBalls();
   }
 
-  function unfreezeBall(ball) {
-    if (!ball || !ball.body) {
-      console.log('[FREEZE] ❌ Cannot unfreeze - ball or body is null');
-      return;
+  // Spawn two new balls (called after word creation or ball deletion)
+  function spawnTwoBalls() {
+    console.log('[SPAWN] 🎯 Spawning 2 new balls...');
+    for (let i = 0; i < 2; i++) {
+      spawnSingleBall();
     }
-
-    const frozenData = frozenBalls.get(ball);
-    if (!frozenData) {
-      console.log(`[FREEZE] ⚠️ Ball ${ball.letter} is not frozen`);
-      return;
-    }
-
-    // Restore original static state
-    Matter.Body.setStatic(ball.body, frozenData.originalStatic);
-
-    // Set velocity to zero to prevent sudden movements
-    Matter.Body.setVelocity(ball.body, { x: 0, y: 0 });
-
-    frozenBalls.delete(ball);
-
-    console.log(`[FREEZE] 🔓 Unfroze ball: ${ball.letter} | Total frozen: ${frozenBalls.size}`);
-  }
-
-  // Update frozen balls and check for expiration
-  function updateFrozenBalls() {
-    const now = Date.now();
-    const ballsToUnfreeze = [];
-
-    frozenBalls.forEach((frozenData, ball) => {
-      const elapsedTime = now - frozenData.freezeTime;
-
-      if (elapsedTime >= FREEZE.DURATION) {
-        console.log(`[FREEZE] ⏰ Ball ${ball.letter} freeze expired (${elapsedTime}ms / ${FREEZE.DURATION}ms) - auto-unfreezing`);
-        ballsToUnfreeze.push(ball);
-      }
-    });
-
-    // Unfreeze expired balls
-    ballsToUnfreeze.forEach(ball => unfreezeBall(ball));
   }
 
   // Prepare all ball data to spawn
@@ -368,11 +343,6 @@ try {
 
     // Remove balls from physics world and from balls array
     selectedBalls.forEach(ball => {
-      // Remove from frozen balls if frozen
-      if (frozenBalls.has(ball)) {
-        frozenBalls.delete(ball);
-      }
-
       // Remove from Matter.js world
       if (ball.body) {
         removeFromWorld(ball.body);
@@ -389,6 +359,9 @@ try {
     });
 
     console.log(`Removed ${selectedBalls.length} balls | ${balls.length} balls remaining | Bag: ${letterBag.getState().available} available`);
+
+    // Spawn two new balls after creating a word
+    spawnTwoBalls();
   }
 
   // Update danger zone tracking
@@ -460,8 +433,7 @@ try {
     dangerStartTime = null;
     ballsInDanger.clear();
 
-    // Clear frozen balls tracking
-    frozenBalls.clear();
+    // Clear double-tap tracking
     lastTapTime = 0;
     lastTappedBall = null;
 
@@ -539,7 +511,7 @@ try {
       return;
     }
 
-    // Check for double-tap on a ball to freeze it
+    // Check for double-tap on a ball to delete it
     const now = Date.now();
     const tappedBall = balls.find(ball => {
       const dx = x - ball.x;
@@ -554,19 +526,11 @@ try {
       console.log(`[TAP] ⏱️  Time since last tap: ${timeSinceLastTap}ms | Last ball: ${lastTappedBall?.letter || 'none'} | Same ball: ${lastTappedBall === tappedBall}`);
 
       // Check if this is a double-tap
-      if (lastTappedBall === tappedBall && timeSinceLastTap <= FREEZE.DOUBLE_TAP_DELAY) {
-        // Double-tap detected!
-        console.log(`[TAP] ⚡ DOUBLE-TAP DETECTED! Delay: ${FREEZE.DOUBLE_TAP_DELAY}ms`);
-
-        if (frozenBalls.has(tappedBall)) {
-          // Ball is already frozen - unfreeze it
-          console.log(`[TAP] 🔓 Ball is frozen - unfreezing...`);
-          unfreezeBall(tappedBall);
-        } else {
-          // Freeze the ball
-          console.log(`[TAP] ❄️ Ball is not frozen - freezing...`);
-          freezeBall(tappedBall);
-        }
+      if (lastTappedBall === tappedBall && timeSinceLastTap <= DOUBLE_TAP.DELAY) {
+        // Double-tap detected - delete the ball!
+        console.log(`[TAP] ⚡ DOUBLE-TAP DETECTED! Delay: ${DOUBLE_TAP.DELAY}ms`);
+        console.log(`[TAP] 🗑️ Deleting ball...`);
+        deleteBall(tappedBall);
 
         // Reset double-tap tracking
         lastTapTime = 0;
@@ -575,7 +539,7 @@ try {
         return; // Don't start selection when double-tapping
       } else {
         // First tap - track it
-        console.log(`[TAP] 1️⃣ First tap on ${tappedBall.letter} - waiting for second tap within ${FREEZE.DOUBLE_TAP_DELAY}ms`);
+        console.log(`[TAP] 1️⃣ First tap on ${tappedBall.letter} - waiting for second tap within ${DOUBLE_TAP.DELAY}ms`);
         lastTapTime = now;
         lastTappedBall = tappedBall;
       }
@@ -625,7 +589,6 @@ try {
     // Update Matter.js physics (only if game is not over)
     if (!isGameOver) {
       updatePhysics();
-      updateFrozenBalls(); // Update freeze timers
     }
 
     // Update danger zone
@@ -638,28 +601,8 @@ try {
       ball.vx = ball.body.velocity.x;
       ball.vy = ball.body.velocity.y;
 
-      // Determine ball color (frozen or normal)
-      let ballColor = ball.color;
-      const frozenData = frozenBalls.get(ball);
-
-      if (frozenData) {
-        // Ball is frozen
-        const now = Date.now();
-        const elapsedTime = now - frozenData.freezeTime;
-        const timeRemaining = FREEZE.DURATION - elapsedTime;
-
-        // Pulse between white and gray in the last 3 seconds
-        if (timeRemaining <= FREEZE.WARNING_TIME) {
-          const pulsePhase = Math.floor(now / FREEZE.PULSE_SPEED) % 2;
-          ballColor = pulsePhase === 0 ? FREEZE.FROZEN_COLOR : FREEZE.PULSE_COLOR;
-        } else {
-          // Solid white when frozen (not pulsing yet)
-          ballColor = FREEZE.FROZEN_COLOR;
-        }
-      }
-
       // Draw ball circle
-      ctx.fillStyle = ballColor;
+      ctx.fillStyle = ball.color;
       ctx.beginPath();
       ctx.arc(ball.x, ball.y, ball.radius, 0, Math.PI * 2);
       ctx.fill();
