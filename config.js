@@ -63,6 +63,16 @@ export const DANGER = {
   VELOCITY_THRESHOLD: 2   // Ignore balls moving faster than this (just spawned)
 };
 
+// ========== Freeze Feature ==========
+export const FREEZE = {
+  DURATION: 15000,        // 15 seconds freeze time
+  WARNING_TIME: 3000,     // Start pulsing 3 seconds before unfreeze
+  PULSE_SPEED: 300,       // ms for pulse animation
+  FROZEN_COLOR: '#FFFFFF', // White when frozen
+  PULSE_COLOR: '#AAAAAA', // Gray during pulse
+  DOUBLE_TAP_DELAY: 300   // ms between taps to detect double-tap
+};
+
 // ========== Letter Bag Distribution (Optimized for word formation, 100 total) ==========
 export const LETTER_BAG_DISTRIBUTION = {
   // Vowels - 32 total (32%) - reduced from Scrabble's 42% for better word variety
