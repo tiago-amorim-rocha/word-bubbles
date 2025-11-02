@@ -128,7 +128,10 @@ try {
 
   // Freeze/unfreeze functions
   function freezeBall(ball) {
-    if (!ball || !ball.body) return;
+    if (!ball || !ball.body) {
+      console.log('[FREEZE] ❌ Cannot freeze - ball or body is null');
+      return;
+    }
 
     // Store original state and freeze time
     frozenBalls.set(ball, {
@@ -140,14 +143,20 @@ try {
     // Make ball static (frozen in place)
     Matter.Body.setStatic(ball.body, true);
 
-    console.log(`Froze ball: ${ball.letter}`);
+    console.log(`[FREEZE] ❄️ Froze ball: ${ball.letter} at (${Math.round(ball.x)}, ${Math.round(ball.y)}) | Total frozen: ${frozenBalls.size}`);
   }
 
   function unfreezeBall(ball) {
-    if (!ball || !ball.body) return;
+    if (!ball || !ball.body) {
+      console.log('[FREEZE] ❌ Cannot unfreeze - ball or body is null');
+      return;
+    }
 
     const frozenData = frozenBalls.get(ball);
-    if (!frozenData) return;
+    if (!frozenData) {
+      console.log(`[FREEZE] ⚠️ Ball ${ball.letter} is not frozen`);
+      return;
+    }
 
     // Restore original static state
     Matter.Body.setStatic(ball.body, frozenData.originalStatic);
@@ -157,7 +166,7 @@ try {
 
     frozenBalls.delete(ball);
 
-    console.log(`Unfroze ball: ${ball.letter}`);
+    console.log(`[FREEZE] 🔓 Unfroze ball: ${ball.letter} | Total frozen: ${frozenBalls.size}`);
   }
 
   // Update frozen balls and check for expiration
@@ -169,6 +178,7 @@ try {
       const elapsedTime = now - frozenData.freezeTime;
 
       if (elapsedTime >= FREEZE.DURATION) {
+        console.log(`[FREEZE] ⏰ Ball ${ball.letter} freeze expired (${elapsedTime}ms / ${FREEZE.DURATION}ms) - auto-unfreezing`);
         ballsToUnfreeze.push(ball);
       }
     });
@@ -511,17 +521,23 @@ try {
     const x = touch.clientX - rect.left;
     const y = touch.clientY - rect.top;
 
+    console.log(`[TAP] 👆 Touch at (${Math.round(x)}, ${Math.round(y)})`);
+
     // Check for restart button click when game over
     if (isGameOver && window.restartButtonBounds) {
       const btn = window.restartButtonBounds;
       if (x >= btn.x && x <= btn.x + btn.width && y >= btn.y && y <= btn.y + btn.height) {
+        console.log('[TAP] 🔄 Restart button pressed');
         restartGame();
         return;
       }
     }
 
     // Normal touch handling (only if game not over)
-    if (isGameOver) return;
+    if (isGameOver) {
+      console.log('[TAP] ⚠️ Game over - ignoring touch');
+      return;
+    }
 
     // Check for double-tap on a ball to freeze it
     const now = Date.now();
@@ -533,32 +549,44 @@ try {
     });
 
     if (tappedBall) {
+      const timeSinceLastTap = now - lastTapTime;
+      console.log(`[TAP] 🎯 Tapped ball: ${tappedBall.letter} at (${Math.round(tappedBall.x)}, ${Math.round(tappedBall.y)})`);
+      console.log(`[TAP] ⏱️  Time since last tap: ${timeSinceLastTap}ms | Last ball: ${lastTappedBall?.letter || 'none'} | Same ball: ${lastTappedBall === tappedBall}`);
+
       // Check if this is a double-tap
-      if (lastTappedBall === tappedBall && (now - lastTapTime) <= FREEZE.DOUBLE_TAP_DELAY) {
+      if (lastTappedBall === tappedBall && timeSinceLastTap <= FREEZE.DOUBLE_TAP_DELAY) {
         // Double-tap detected!
+        console.log(`[TAP] ⚡ DOUBLE-TAP DETECTED! Delay: ${FREEZE.DOUBLE_TAP_DELAY}ms`);
+
         if (frozenBalls.has(tappedBall)) {
           // Ball is already frozen - unfreeze it
+          console.log(`[TAP] 🔓 Ball is frozen - unfreezing...`);
           unfreezeBall(tappedBall);
         } else {
           // Freeze the ball
+          console.log(`[TAP] ❄️ Ball is not frozen - freezing...`);
           freezeBall(tappedBall);
         }
 
         // Reset double-tap tracking
         lastTapTime = 0;
         lastTappedBall = null;
+        console.log('[TAP] 🔄 Double-tap tracking reset');
         return; // Don't start selection when double-tapping
       } else {
         // First tap - track it
+        console.log(`[TAP] 1️⃣ First tap on ${tappedBall.letter} - waiting for second tap within ${FREEZE.DOUBLE_TAP_DELAY}ms`);
         lastTapTime = now;
         lastTappedBall = tappedBall;
       }
     } else {
       // Tapped empty space - reset tracking
+      console.log('[TAP] ⬜ Tapped empty space - resetting double-tap tracking');
       lastTapTime = 0;
       lastTappedBall = null;
     }
 
+    console.log('[TAP] 📝 Passing to selection system...');
     handleTouchStart(x, y);
   }, { passive: false });
 
