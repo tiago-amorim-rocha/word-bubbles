@@ -52,6 +52,39 @@ export const BIGRAM_WEIGHTS = {
 // Common double letters (for safety penalty reduction)
 const COMMON_DOUBLES = new Set(['ee', 'll', 'ss', 'oo', 'tt', 'ff', 'mm', 'nn']);
 
+// ========== Recency Tracking ==========
+// Track recently spawned bigrams to encourage variety
+const recentlySpawned = [];
+const MAX_RECENT_HISTORY = 10; // Track last 10 spawns
+
+/**
+ * Add a bigram to the recency tracker
+ */
+function trackSpawnedBigram(bigram) {
+  recentlySpawned.unshift(bigram.toUpperCase());
+  if (recentlySpawned.length > MAX_RECENT_HISTORY) {
+    recentlySpawned.pop();
+  }
+}
+
+/**
+ * Calculate recency penalty for a bigram
+ * More recent = higher penalty
+ */
+function calculateRecencyPenalty(bigram) {
+  const upperBigram = bigram.toUpperCase();
+  let penalty = 0;
+
+  for (let i = 0; i < recentlySpawned.length; i++) {
+    if (recentlySpawned[i] === upperBigram) {
+      // Decay penalty: most recent (i=0) gets 15 points, then 12, 9, 6, 3...
+      penalty += Math.max(15 - i * 3, 2);
+    }
+  }
+
+  return penalty;
+}
+
 // ========== Histogram Tracking ==========
 
 /**
@@ -286,13 +319,15 @@ function scoreBigram(bigram, histogram, targets, balls, currentVowelRatio) {
   const bigramGoodness = calculateBigramGoodness(bigram, balls);
   const vowelBalance = calculateVowelBalance(letter1, letter2, currentVowelRatio);
   const safetyPenalty = calculateSafetyPenalties(letter1, letter2, histogram);
+  const recencyPenalty = calculateRecencyPenalty(bigram);
 
   // Combine scores (weighted)
   const score =
     distributionGain * 2.0 +    // Distribution is important
     bigramGoodness * 1.5 +      // Bigram quality is important
     vowelBalance * 1.0 -        // Vowel balance matters
-    safetyPenalty * 1.0;        // Penalties reduce score
+    safetyPenalty * 1.0 -       // Penalties reduce score
+    recencyPenalty * 1.0;       // Recency penalty for variety
 
   return {
     bigram,
@@ -301,7 +336,8 @@ function scoreBigram(bigram, histogram, targets, balls, currentVowelRatio) {
       distributionGain,
       bigramGoodness,
       vowelBalance,
-      safetyPenalty
+      safetyPenalty,
+      recencyPenalty
     }
   };
 }
@@ -327,13 +363,20 @@ export function selectBigramPair(balls) {
   // Select the best one
   const best = scoredCandidates[0];
 
+  // Track this bigram for recency penalties
+  trackSpawnedBigram(best.bigram);
+
   // Log selection for debugging
   console.log(`[BIGRAM] 🎯 Selected: "${best.bigram}" (score: ${best.score.toFixed(2)})`);
   console.log(`[BIGRAM]   Distribution gain: ${best.components.distributionGain.toFixed(2)}`);
   console.log(`[BIGRAM]   Bigram goodness: ${best.components.bigramGoodness.toFixed(2)}`);
   console.log(`[BIGRAM]   Vowel balance: ${best.components.vowelBalance.toFixed(2)}`);
   console.log(`[BIGRAM]   Safety penalty: ${best.components.safetyPenalty.toFixed(2)}`);
+  console.log(`[BIGRAM]   Recency penalty: ${best.components.recencyPenalty.toFixed(2)}`);
   console.log(`[BIGRAM]   Current vowel ratio: ${(currentVowelRatio * 100).toFixed(1)}%`);
+  if (recentlySpawned.length > 0) {
+    console.log(`[BIGRAM]   Recent spawns: ${recentlySpawned.slice(0, 5).join(', ')}`);
+  }
 
   return {
     letter1: best.bigram[0],
@@ -364,6 +407,8 @@ if (typeof window !== 'undefined') {
     selectBigramPair,
     getSpawnStats,
     TARGET_DISTRIBUTION,
-    BIGRAM_WEIGHTS
+    BIGRAM_WEIGHTS,
+    getRecentSpawns: () => [...recentlySpawned],
+    clearRecentSpawns: () => { recentlySpawned.length = 0; }
   };
 }
