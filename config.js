@@ -84,12 +84,7 @@ export const LETTER_BAG_DISTRIBUTION = {
 
 // Get consistent color for a letter
 export function getColorForLetter(letter) {
-  // Generate HSL color based on alphabet position (A=0, Z=25)
-  const alphabetPosition = letter.charCodeAt(0) - 'A'.charCodeAt(0);
-  const hue = Math.round((alphabetPosition / 26) * 360); // Distribute across color wheel
-  const saturation = 70; // Bright, vibrant colors
-  const lightness = 70;  // Bright and cheerful
-  return `hsl(${hue}, ${saturation}%, ${lightness}%)`;
+  return '#AAAAAA'; // Light gray for all balls
 }
 
 // Calculate ball radius based on letter bag count (more in bag = bigger ball)
