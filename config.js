@@ -13,9 +13,9 @@ export const PHYSICS = {
 
 // ========== Ball Properties ==========
 export const BALL = {
-  MIN_RADIUS: 30,
-  MAX_RADIUS: 45,
-  BASE_RADIUS: 37.5,  // Midpoint for density scaling
+  MIN_RADIUS: 24,     // 20% smaller (was 30)
+  MAX_RADIUS: 36,     // 20% smaller (was 45)
+  BASE_RADIUS: 30,    // 20% smaller (was 37.5) - Midpoint for density scaling
   NUM_BALLS: 20       // Initial balls (reduced for survival mode)
 };
 
@@ -31,7 +31,7 @@ export const SPAWN = {
 
 // ========== Selection ==========
 export const SELECTION = {
-  MAX_DISTANCE: 187.5,    // Max distance between balls (2.5 × avg diameter)
+  MAX_DISTANCE: 150,      // Max distance between balls (2.5 × avg diameter, adjusted for smaller balls)
   HIGHLIGHT_COLOR: '#FFD700', // Gold color for selected balls
   LINE_COLOR: '#FFD700',  // Color for connecting lines
   LINE_WIDTH: 3,          // Width of connecting lines
