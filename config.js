@@ -31,7 +31,7 @@ export const SPAWN = {
 
 // ========== Selection ==========
 export const SELECTION = {
-  MAX_DISTANCE: 150,      // Max distance between balls (2.5 × avg diameter, adjusted for smaller balls)
+  MAX_DISTANCE: 300,      // Max distance between balls (2.5 × avg diameter, adjusted for smaller balls)
   HIGHLIGHT_COLOR: '#FFD700', // Gold color for selected balls
   LINE_COLOR: '#FFD700',  // Color for connecting lines
   LINE_WIDTH: 3,          // Width of connecting lines
