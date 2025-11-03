@@ -91,3 +91,16 @@ export function addToWorld(body) {
 export function removeFromWorld(body) {
   World.remove(engine.world, body);
 }
+
+// Create an invisible static bubble (acts as physical obstacle but allows word connections through)
+export function createInvisibleBubble(x, y, radius) {
+  const bubble = Bodies.circle(x, y, radius, {
+    isStatic: true,          // Fixed position
+    restitution: PHYSICS.BOUNCE,
+    friction: PHYSICS.FRICTION,
+    // Mark as invisible for special handling
+    isInvisible: true
+  });
+
+  return bubble;
+}

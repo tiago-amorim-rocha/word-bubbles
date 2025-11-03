@@ -14,7 +14,7 @@ const wordSpawnModule = await import(`./wordSpawnSystem.js?v=${v}`);
 const { initDebugConsole } = debugConsoleModule;
 const { letterBag } = letterBagModule;
 const { PHYSICS, BALL, SPAWN, SELECTION, SCORE, DANGER, DOUBLE_TAP, getColorForLetter, getRadiusForLetter } = configModule;
-const { engine, createWalls, createBallBody, createPhysicsInterface, updatePhysics, addToWorld, removeFromWorld } = physicsModule;
+const { engine, createWalls, createBallBody, createPhysicsInterface, updatePhysics, addToWorld, removeFromWorld, createInvisibleBubble } = physicsModule;
 const { initSelection, handleTouchStart, handleTouchMove, handleTouchEnd, getSelection, getTouchPosition, isSelectionActive, getSelectedWord } = selectionModule;
 const { wordValidator } = wordValidatorModule;
 const { scoring } = scoringModule;
@@ -120,6 +120,15 @@ try {
   // Create physics walls
   const balls = [];
   const walls = createWalls(logicalWidth, logicalHeight);
+
+  // Create invisible bubble in the center
+  const invisibleBubbleRadius = 40;
+  const invisibleBubbleX = logicalWidth / 2;
+  const invisibleBubbleY = logicalHeight / 2;
+  const invisibleBubble = createInvisibleBubble(invisibleBubbleX, invisibleBubbleY, invisibleBubbleRadius);
+  addToWorld(invisibleBubble);
+
+  console.log(`Created invisible bubble at (${Math.round(invisibleBubbleX)}, ${Math.round(invisibleBubbleY)}) with radius ${invisibleBubbleRadius}`);
 
   // Game state
   let isGameOver = false;
@@ -561,7 +570,7 @@ try {
   }
 
   // Initialize selection system
-  initSelection(balls);
+  initSelection(balls, invisibleBubble);
 
   // Touch event handlers
   canvas.addEventListener('touchstart', (e) => {
@@ -671,6 +680,15 @@ try {
 
     // Update danger zone
     updateDangerZone();
+
+    // Draw invisible bubble with faint outline
+    if (invisibleBubble) {
+      ctx.strokeStyle = 'rgba(200, 200, 200, 0.3)'; // Very faint gray
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      ctx.arc(invisibleBubble.position.x, invisibleBubble.position.y, invisibleBubbleRadius, 0, Math.PI * 2);
+      ctx.stroke();
+    }
 
     // Sync ball positions from Matter.js bodies
     balls.forEach(ball => {
