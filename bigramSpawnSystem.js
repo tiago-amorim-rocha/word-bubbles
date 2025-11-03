@@ -211,16 +211,19 @@ function calculateOverrepresentationPenalty(letter1, letter2, histogram) {
   const letter1Ratio = letter1Current / letter1Target;
   const letter2Ratio = letter2Current / letter2Target;
 
-  // Progressive penalty: the more over-represented, the higher the penalty
-  // At target (ratio=1.0): 0 penalty
-  // At 1.2x target: ~3 penalty per letter
-  // At 1.5x target: ~7.5 penalty per letter
-  // At 2x target: ~15 penalty per letter
-  if (letter1Ratio >= 1.0) {
-    penalty += (letter1Ratio - 1.0) * 15;
+  // Progressive penalty: starts at 0.6x target to encourage variety
+  // At 0.6x target (60%): 0 penalty
+  // At 0.8x target (80%): 4 penalty per letter
+  // At 1.0x target (100%): 8 penalty per letter
+  // At 1.2x target (120%): 12 penalty per letter
+  // At 1.5x target (150%): 18 penalty per letter
+  // At 2.0x target (200%): 28 penalty per letter
+  const threshold = 0.6;
+  if (letter1Ratio >= threshold) {
+    penalty += (letter1Ratio - threshold) * 20;
   }
-  if (letter2Ratio >= 1.0) {
-    penalty += (letter2Ratio - 1.0) * 15;
+  if (letter2Ratio >= threshold) {
+    penalty += (letter2Ratio - threshold) * 20;
   }
 
   // Additional penalty for rare letters (unless we really need them)
@@ -335,23 +338,6 @@ export function selectBigramPair(balls) {
 
   // Select the best one
   const best = scoredCandidates[0];
-
-  // Log selection for debugging
-  console.log(`[BIGRAM] 🎯 Selected: "${best.bigram}" (score: ${best.score.toFixed(2)})`);
-  console.log(`[BIGRAM]   Distribution gain: ${best.components.distributionGain.toFixed(2)}`);
-  console.log(`[BIGRAM]   Bigram goodness: ${best.components.bigramGoodness.toFixed(2)}`);
-  console.log(`[BIGRAM]   Vowel balance: ${best.components.vowelBalance.toFixed(2)}`);
-  console.log(`[BIGRAM]   Overrep penalty: ${best.components.overrepPenalty.toFixed(2)}`);
-  console.log(`[BIGRAM]   Current vowel ratio: ${(currentVowelRatio * 100).toFixed(1)}%`);
-
-  // Show current state of the letters being spawned
-  const letter1 = best.bigram[0];
-  const letter2 = best.bigram[1];
-  const letter1Current = histogram[letter1] || 0;
-  const letter2Current = histogram[letter2] || 0;
-  const letter1Target = TARGET_DISTRIBUTION[letter1] || 1;
-  const letter2Target = TARGET_DISTRIBUTION[letter2] || 1;
-  console.log(`[BIGRAM]   Board state: ${letter1}=${letter1Current}/${letter1Target}, ${letter2}=${letter2Current}/${letter2Target}`);
 
   return {
     letter1: best.bigram[0],

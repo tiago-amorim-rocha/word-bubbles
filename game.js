@@ -182,8 +182,10 @@ try {
   // Spawn two new balls (called after word creation or ball deletion)
   // Now spawns a single bigram pair (which is 2 balls)
   function spawnTwoBalls() {
-    console.log('[SPAWN] 🎯 Spawning bigram pair (2 balls)...');
+    spawnedLettersThisBatch = [];
     spawnBigramPair();
+    // Log after a short delay to ensure ball is added
+    setTimeout(() => logSpawnSummary(), 50);
   }
 
   // Prepare all ball data to spawn (using new bigram spawn system)
@@ -230,12 +232,33 @@ try {
     return false;
   }
 
+  // Track spawned letters for consolidated logging
+  let spawnedLettersThisBatch = [];
+
+  // Log spawn summary: spawned letters + current board state
+  function logSpawnSummary() {
+    // Count letters on board
+    const letterCounts = {};
+    balls.forEach(ball => {
+      letterCounts[ball.letter] = (letterCounts[ball.letter] || 0) + 1;
+    });
+
+    // Format spawned letters
+    const spawnedStr = spawnedLettersThisBatch.join('');
+
+    // Format board state (sorted alphabetically)
+    const boardStr = Object.entries(letterCounts)
+      .sort(([a], [b]) => a.localeCompare(b))
+      .map(([letter, count]) => `${letter}:${count}`)
+      .join(' ');
+
+    console.log(`Spawned: ${spawnedStr} | Board: ${boardStr}`);
+  }
+
   // Spawn a bigram pair (used for continuous spawning)
   function spawnBigramPair() {
     // Select the best bigram based on current board state
     const pair = selectBigramPair(balls);
-
-    console.log(`[SPAWN] 🎯 Spawning bigram pair: ${pair.letter1}${pair.letter2}`);
 
     // Spawn both letters close together
     const letter1 = pair.letter1;
@@ -297,12 +320,13 @@ try {
         addToWorld(ball2.body);
         balls.push(ball2);
 
-        console.log(`[SPAWN] ✓ Bigram pair spawned: ${letter1}${letter2} at (${Math.round(x1)}, ${Math.round(y1)}) and (${Math.round(x2)}, ${Math.round(y2)})`);
+        // Track spawned letters for batch logging
+        spawnedLettersThisBatch.push(letter1, letter2);
+
         return true;
       }
     }
 
-    console.warn('Could not find valid spawn positions for bigram pair');
     return false;
   }
 
@@ -334,6 +358,9 @@ try {
         console.log(`Starting continuous spawn: ${numPairsPerBatch} bigram pairs (${numPairsPerBatch * 2} balls) every ${SPAWN.INTERVAL}ms`);
         continuousSpawnInterval = setInterval(() => {
           if (!isGameOver) {
+            // Clear batch tracking
+            spawnedLettersThisBatch = [];
+
             // Spawn pairs with staggered delays to avoid collisions
             for (let i = 0; i < numPairsPerBatch; i++) {
               setTimeout(() => {
@@ -343,11 +370,10 @@ try {
               }, i * 200); // 200ms delay between each pair
             }
 
-            // Log current spawn stats after all pairs spawn
+            // Log consolidated spawn info after all pairs spawn
             setTimeout(() => {
               if (!isGameOver) {
-                const stats = getSpawnStats(balls);
-                console.log(`[STATS] Total balls: ${stats.totalBalls} | Vowel ratio: ${(stats.vowelRatio * 100).toFixed(1)}%`);
+                logSpawnSummary();
               }
             }, numPairsPerBatch * 200 + 100);
           }
