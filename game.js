@@ -10,6 +10,7 @@ const selectionModule = await import(`./selection.js?v=${v}`);
 const wordValidatorModule = await import(`./wordValidator.js?v=${v}`);
 const scoringModule = await import(`./scoring.js?v=${v}`);
 const wordSpawnModule = await import(`./wordSpawnSystem.js?v=${v}`);
+const bigramSpawnModule = await import(`./bigramSpawnSystem.js?v=${v}`);
 
 const { initDebugConsole } = debugConsoleModule;
 const { letterBag } = letterBagModule;
@@ -28,6 +29,10 @@ const {
   checkVowelBalance,
   resetSpawnSystem
 } = wordSpawnModule;
+const {
+  selectBigramPair,
+  getSpawnStats
+} = bigramSpawnModule;
 
 // Initialize debug console first
 initDebugConsole();
@@ -175,28 +180,36 @@ try {
   }
 
   // Spawn two new balls (called after word creation or ball deletion)
+  // Now spawns a single bigram pair (which is 2 balls)
   function spawnTwoBalls() {
-    console.log('[SPAWN] 🎯 Spawning 2 new balls...');
-    for (let i = 0; i < 2; i++) {
-      spawnSingleBall();
-    }
+    console.log('[SPAWN] 🎯 Spawning bigram pair (2 balls)...');
+    spawnBigramPair();
   }
 
-  // Prepare all ball data to spawn (using new word spawn system)
+  // Prepare all ball data to spawn (using new bigram spawn system)
   const ballsToSpawn = [];
-  for (let i = 0; i < BALL.NUM_BALLS; i++) {
-    // Use middle region for initial spawns to keep it balanced
-    const letter = drawLetterFromBag('MIDDLE');
-    const radius = getRadiusForLetter(letter);
 
-    ballsToSpawn.push({
-      letter: letter,
-      radius: radius,
-      color: getColorForLetter(letter)
+  // Spawn initial pairs using bigram system
+  // We'll spawn NUM_BALLS / 2 pairs (rounded up)
+  const numPairs = Math.ceil(BALL.NUM_BALLS / 2);
+  for (let i = 0; i < numPairs; i++) {
+    // For initial spawn, use a simple balanced approach
+    // We'll build up the histogram as we go
+    const tempBalls = ballsToSpawn.map(data => ({ letter: data.letter }));
+    const pair = selectBigramPair(tempBalls);
+
+    // Add both letters from the pair
+    [pair.letter1, pair.letter2].forEach(letter => {
+      const radius = getRadiusForLetter(letter);
+      ballsToSpawn.push({
+        letter: letter,
+        radius: radius,
+        color: getColorForLetter(letter)
+      });
     });
   }
 
-  console.log(`Prepared ${ballsToSpawn.length} balls to spawn (using word spawn system)`);
+  console.log(`Prepared ${ballsToSpawn.length} balls to spawn (using bigram spawn system)`);
 
   // Ball spawning system - spawn balls one at a time from above
   let spawnIndex = 0;
@@ -217,17 +230,85 @@ try {
     return false;
   }
 
-  // Spawn a single ball (used for continuous spawning)
-  function spawnSingleBall() {
-    // Check vowel balance periodically
-    checkVowelBalance(balls);
+  // Spawn a bigram pair (used for continuous spawning)
+  function spawnBigramPair() {
+    // Select the best bigram based on current board state
+    const pair = selectBigramPair(balls);
 
-    // Decide: single letter or cluster?
-    if (shouldSpawnCluster()) {
-      return spawnCluster();
-    } else {
-      return spawnSingleLetter();
+    console.log(`[SPAWN] 🎯 Spawning bigram pair: ${pair.letter1}${pair.letter2}`);
+
+    // Spawn both letters close together
+    const letter1 = pair.letter1;
+    const letter2 = pair.letter2;
+
+    const radius1 = getRadiusForLetter(letter1);
+    const radius2 = getRadiusForLetter(letter2);
+    const color1 = getColorForLetter(letter1);
+    const color2 = getColorForLetter(letter2);
+
+    // Pick a random x position for the pair
+    const centerX = radius1 + Math.random() * (logicalWidth - radius1 - radius2);
+
+    // Try to spawn both letters close together
+    const maxAttempts = 10;
+    const pairSpacing = 60; // Distance between the two letters
+
+    for (let attempt = 0; attempt < maxAttempts; attempt++) {
+      const jitter = (Math.random() - 0.5) * 50;
+      const x1 = Math.max(radius1, Math.min(logicalWidth - radius1, centerX - pairSpacing/2 + jitter));
+      const x2 = Math.max(radius2, Math.min(logicalWidth - radius2, centerX + pairSpacing/2 + jitter));
+      const y1 = -SPAWN.ZONE_HEIGHT + Math.random() * SPAWN.ZONE_HEIGHT;
+      const y2 = y1 + (Math.random() - 0.5) * 30; // Slight vertical offset
+
+      // Check if both positions are valid
+      const collision1 = wouldCollide(x1, y1, radius1);
+      const collision2 = wouldCollide(x2, y2, radius2);
+
+      if (!collision1 && !collision2) {
+        // Spawn first letter
+        const ball1 = {
+          x: x1,
+          y: y1,
+          vx: 0,
+          vy: SPAWN.INITIAL_VELOCITY,
+          radius: radius1,
+          color: color1,
+          letter: letter1,
+        };
+        ball1.body = createBallBody(ball1.x, ball1.y, ball1.radius);
+        Matter.Body.setVelocity(ball1.body, { x: 0, y: SPAWN.INITIAL_VELOCITY });
+        ball1.body.ballData = ball1;
+        addToWorld(ball1.body);
+        balls.push(ball1);
+
+        // Spawn second letter
+        const ball2 = {
+          x: x2,
+          y: y2,
+          vx: 0,
+          vy: SPAWN.INITIAL_VELOCITY,
+          radius: radius2,
+          color: color2,
+          letter: letter2,
+        };
+        ball2.body = createBallBody(ball2.x, ball2.y, ball2.radius);
+        Matter.Body.setVelocity(ball2.body, { x: 0, y: SPAWN.INITIAL_VELOCITY });
+        ball2.body.ballData = ball2;
+        addToWorld(ball2.body);
+        balls.push(ball2);
+
+        console.log(`[SPAWN] ✓ Bigram pair spawned: ${letter1}${letter2} at (${Math.round(x1)}, ${Math.round(y1)}) and (${Math.round(x2)}, ${Math.round(y2)})`);
+        return true;
+      }
     }
+
+    console.warn('Could not find valid spawn positions for bigram pair');
+    return false;
+  }
+
+  // Legacy function for compatibility - now spawns a bigram pair
+  function spawnSingleBall() {
+    return spawnBigramPair();
   }
 
   // Spawn a single letter with positional bias
@@ -350,13 +431,19 @@ try {
         console.log('Letter distribution:', Object.entries(letterCounts).sort().map(([l, c]) => `${l}:${c}`).join(' '));
         console.log(`Vowels: ${vowelCount}/${balls.length} (${Math.round(vowelCount/balls.length*100)}%)`);
 
-        // Start continuous spawning (batch of balls every interval)
-        console.log(`Starting continuous spawn: ${SPAWN.BATCH_SIZE} balls every ${SPAWN.INTERVAL}ms`);
+        // Start continuous spawning (batch of pairs every interval)
+        // BATCH_SIZE / 2 pairs (rounded up)
+        const numPairsPerBatch = Math.ceil(SPAWN.BATCH_SIZE / 2);
+        console.log(`Starting continuous spawn: ${numPairsPerBatch} bigram pairs (${numPairsPerBatch * 2} balls) every ${SPAWN.INTERVAL}ms`);
         continuousSpawnInterval = setInterval(() => {
           if (!isGameOver) {
-            for (let i = 0; i < SPAWN.BATCH_SIZE; i++) {
-              spawnSingleBall();
+            for (let i = 0; i < numPairsPerBatch; i++) {
+              spawnBigramPair();
             }
+
+            // Log current spawn stats every interval
+            const stats = getSpawnStats(balls);
+            console.log(`[STATS] Total balls: ${stats.totalBalls} | Vowel ratio: ${(stats.vowelRatio * 100).toFixed(1)}%`);
           }
         }, SPAWN.INTERVAL);
 
@@ -550,16 +637,22 @@ try {
     spawnIndex = 0;
     isRetrying = false;
 
-    // Prepare new balls to spawn (using word spawn system)
+    // Prepare new balls to spawn (using bigram spawn system)
     ballsToSpawn.length = 0;
-    for (let i = 0; i < BALL.NUM_BALLS; i++) {
-      // Use middle region for initial spawns to keep it balanced
-      const letter = drawLetterFromBag('MIDDLE');
-      const radius = getRadiusForLetter(letter);
-      ballsToSpawn.push({
-        letter: letter,
-        radius: radius,
-        color: getColorForLetter(letter)
+    const numPairs = Math.ceil(BALL.NUM_BALLS / 2);
+    for (let i = 0; i < numPairs; i++) {
+      // For initial spawn, use a simple balanced approach
+      const tempBalls = ballsToSpawn.map(data => ({ letter: data.letter }));
+      const pair = selectBigramPair(tempBalls);
+
+      // Add both letters from the pair
+      [pair.letter1, pair.letter2].forEach(letter => {
+        const radius = getRadiusForLetter(letter);
+        ballsToSpawn.push({
+          letter: letter,
+          radius: radius,
+          color: getColorForLetter(letter)
+        });
       });
     }
 
