@@ -121,10 +121,10 @@ try {
   const balls = [];
   const walls = createWalls(logicalWidth, logicalHeight);
 
-  // Create invisible bubble in the center
-  const invisibleBubbleRadius = 40;
+  // Create invisible bubble in the lower-center of screen
+  const invisibleBubbleRadius = 80; // 2x larger
   const invisibleBubbleX = logicalWidth / 2;
-  const invisibleBubbleY = logicalHeight / 2;
+  const invisibleBubbleY = logicalHeight * 0.65; // Lower position (65% down from top)
   const invisibleBubble = createInvisibleBubble(invisibleBubbleX, invisibleBubbleY, invisibleBubbleRadius);
   addToWorld(invisibleBubble);
 
