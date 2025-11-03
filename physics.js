@@ -104,3 +104,22 @@ export function createInvisibleBubble(x, y, radius) {
 
   return bubble;
 }
+
+// Create a finger-tracking collider (draggable invisible obstacle)
+export function createFingerCollider(x, y, radius) {
+  const collider = Bodies.circle(x, y, radius, {
+    isStatic: true,          // Static but we'll move it manually
+    restitution: PHYSICS.BOUNCE,
+    friction: PHYSICS.FRICTION,
+    // Mark as finger collider for special handling
+    isFingerCollider: true
+  });
+
+  return collider;
+}
+
+// Update finger collider position (smooth movement for physics engine)
+export function updateFingerColliderPosition(collider, x, y) {
+  if (!collider) return;
+  Body.setPosition(collider, { x, y });
+}

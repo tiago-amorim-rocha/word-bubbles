@@ -14,8 +14,8 @@ const bigramSpawnModule = await import(`./bigramSpawnSystem.js?v=${v}`);
 
 const { initDebugConsole } = debugConsoleModule;
 const { letterBag } = letterBagModule;
-const { PHYSICS, BALL, SPAWN, SELECTION, SCORE, DANGER, DOUBLE_TAP, getColorForLetter, getRadiusForLetter } = configModule;
-const { engine, createWalls, createBallBody, createPhysicsInterface, updatePhysics, addToWorld, removeFromWorld, createInvisibleBubble } = physicsModule;
+const { PHYSICS, BALL, SPAWN, SELECTION, SCORE, DANGER, DOUBLE_TAP, FINGER_COLLIDER, getColorForLetter, getRadiusForLetter } = configModule;
+const { engine, createWalls, createBallBody, createPhysicsInterface, updatePhysics, addToWorld, removeFromWorld, createInvisibleBubble, createFingerCollider, updateFingerColliderPosition } = physicsModule;
 const { initSelection, handleTouchStart, handleTouchMove, handleTouchEnd, getSelection, getTouchPosition, isSelectionActive, getSelectedWord } = selectionModule;
 const { wordValidator } = wordValidatorModule;
 const { scoring } = scoringModule;
@@ -146,6 +146,9 @@ try {
   // Double-tap delete tracking
   let lastTapTime = 0;
   let lastTappedBall = null;
+
+  // Finger tracking collider state
+  let fingerCollider = null;
 
   // Expose physics interface to debug console
   createPhysicsInterface(balls, walls);
@@ -672,15 +675,21 @@ try {
         lastTapTime = now;
         lastTappedBall = tappedBall;
       }
+
+      // Tapped on a ball - pass to selection system
+      console.log('[TAP] 📝 Passing to selection system...');
+      handleTouchStart(x, y);
     } else {
-      // Tapped empty space - reset tracking
-      console.log('[TAP] ⬜ Tapped empty space - resetting double-tap tracking');
+      // Tapped empty space - create finger collider
+      console.log('[TAP] ⬜ Tapped empty space - creating finger collider');
       lastTapTime = 0;
       lastTappedBall = null;
-    }
 
-    console.log('[TAP] 📝 Passing to selection system...');
-    handleTouchStart(x, y);
+      // Create and add finger collider
+      fingerCollider = createFingerCollider(x, y, FINGER_COLLIDER.RADIUS);
+      addToWorld(fingerCollider);
+      console.log(`[COLLIDER] ✨ Created at (${Math.round(x)}, ${Math.round(y)})`);
+    }
   }, { passive: false });
 
   canvas.addEventListener('touchmove', (e) => {
@@ -691,12 +700,28 @@ try {
     const x = touch.clientX - rect.left;
     const y = touch.clientY - rect.top;
 
-    handleTouchMove(x, y);
+    // Update finger collider position if it exists
+    if (fingerCollider) {
+      updateFingerColliderPosition(fingerCollider, x, y);
+    } else {
+      // If no finger collider, pass to selection system (word formation)
+      handleTouchMove(x, y);
+    }
   }, { passive: false });
 
   canvas.addEventListener('touchend', (e) => {
     if (isGameOver) return;
     e.preventDefault();
+
+    // Remove finger collider if it exists
+    if (fingerCollider) {
+      removeFromWorld(fingerCollider);
+      console.log('[COLLIDER] 🗑️ Removed finger collider');
+      fingerCollider = null;
+      return; // Don't process word selection when using finger collider
+    }
+
+    // Normal word selection handling
     const result = handleTouchEnd();
 
     // Validate word and process if valid
@@ -729,6 +754,25 @@ try {
       ctx.lineWidth = 2;
       ctx.beginPath();
       ctx.arc(invisibleBubble.position.x, invisibleBubble.position.y, invisibleBubbleRadius, 0, Math.PI * 2);
+      ctx.stroke();
+    }
+
+    // Draw finger collider with green tint
+    if (fingerCollider) {
+      // Parse the hex color and add alpha
+      const r = parseInt(FINGER_COLLIDER.VISUAL_COLOR.slice(1, 3), 16);
+      const g = parseInt(FINGER_COLLIDER.VISUAL_COLOR.slice(3, 5), 16);
+      const b = parseInt(FINGER_COLLIDER.VISUAL_COLOR.slice(5, 7), 16);
+
+      // Fill with transparent green
+      ctx.fillStyle = `rgba(${r}, ${g}, ${b}, ${FINGER_COLLIDER.VISUAL_OPACITY})`;
+      ctx.beginPath();
+      ctx.arc(fingerCollider.position.x, fingerCollider.position.y, FINGER_COLLIDER.RADIUS, 0, Math.PI * 2);
+      ctx.fill();
+
+      // Stroke with opaque green
+      ctx.strokeStyle = FINGER_COLLIDER.VISUAL_COLOR;
+      ctx.lineWidth = FINGER_COLLIDER.STROKE_WIDTH;
       ctx.stroke();
     }
 
