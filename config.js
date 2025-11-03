@@ -60,7 +60,7 @@ export const DANGER = {
   THRESHOLD_TIME: 5000,   // 5 seconds before game over
   WARNING_COLOR: '#F44336',
   WARNING_FLASH_SPEED: 500, // ms for warning pulse
-  VELOCITY_THRESHOLD: 2   // Ignore balls moving faster than this (just spawned)
+  VELOCITY_THRESHOLD: 1.0   // Ignore balls moving faster than this (truly settled only)
 };
 
 // ========== Double Tap Delete Feature ==========
