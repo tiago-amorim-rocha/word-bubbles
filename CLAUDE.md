@@ -3,24 +3,28 @@
 ## Quick Context
 A physics-based game where letter balls (A-Z) drop from above and settle using Matter.js. Ball size and mass correlate with letter frequency in English.
 
-## Architecture (5 modules + 1 main)
+## Architecture (6 modules + 1 main)
 
 ```
-index.html          - Entry point, loads game.js as ES6 module
-├── config.js       - All constants (physics, spawning, sizes)
-├── debugConsole.js - Debug UI with physics controls (self-contained)
-├── letterBag.js    - Letter distribution & bag management (Scrabble-like)
-├── physics.js      - Matter.js engine setup & physics helpers
-└── game.js         - Main: canvas, spawning, rendering, coordination
+index.html             - Entry point, loads game.js as ES6 module
+├── config.js          - All constants (physics, spawning, sizes)
+├── debugConsole.js    - Debug UI with physics controls (self-contained)
+├── letterBag.js       - Legacy letter bag (kept for compatibility)
+├── wordSpawnSystem.js - Advanced spawn system: weighted bags, clusters, positional bias
+├── physics.js         - Matter.js engine setup & physics helpers
+└── game.js            - Main: canvas, spawning, rendering, coordination
 ```
 
 ## Key Systems
 
-### Letter Bag System
-- 100-letter pool optimized for word formation (32% vowels, 68% consonants)
-- Reduced vowel ratio vs Scrabble (32% vs 42%) for better variety with 40 balls on screen
-- Letters can be drawn and returned (for future word removal feature)
-- Exposed as `window.letterBag`
+### Word Spawn System
+- **Infinite weighted bag** (~130 total weight, 40% vowels, 60% consonants)
+- **Cluster spawning** (15% chance): Multi-letter fragments (TH, ING, ER, etc.) spawn close together
+- **Positional bias**: Letters biased by screen region (Starters left, Middles center, Enders right)
+- **Auto-balancing**: Monitors vowel % every 5 spawns, adjusts next 5 spawns if needed
+- **Region-aware clusters**: Prefixes spawn left (UN, RE), suffixes right (ED, LY), middles center (ING, AND)
+- Configuration exposed as `window.SPAWN_CONFIG` for live tuning
+- Legacy letterBag.js kept for compatibility (still used for return tracking)
 
 ### Physics (Matter.js)
 - Gravity: 0.5 (customizable via debug console)
@@ -41,12 +45,13 @@ index.html          - Entry point, loads game.js as ES6 module
 - Console output capture
 
 ## Recent Changes
+- **NEW: Word spawn system** - Intelligent letter spawning with clusters, positional bias, and auto-balancing
 - Removed freeze ball feature (replaced with delete ball)
 - Added double-tap to delete ball feature (spawns 2 new balls after delete)
 - Halved automatic ball spawning rate (10s → 20s intervals)
 - Word creation now spawns 2 new balls (keeping ball count dynamic)
 - Removed tap-to-force explosion mechanic
-- Refactored into modular architecture (5 modules + main)
+- Refactored into modular architecture (6 modules + main)
 - Physics stability improvements (reduced jitter, better settling)
 - Gravity at 1.0, bounce at 0.8
 

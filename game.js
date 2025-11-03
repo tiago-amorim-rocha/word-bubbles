@@ -9,6 +9,7 @@ const physicsModule = await import(`./physics.js?v=${v}`);
 const selectionModule = await import(`./selection.js?v=${v}`);
 const wordValidatorModule = await import(`./wordValidator.js?v=${v}`);
 const scoringModule = await import(`./scoring.js?v=${v}`);
+const wordSpawnModule = await import(`./wordSpawnSystem.js?v=${v}`);
 
 const { initDebugConsole } = debugConsoleModule;
 const { letterBag } = letterBagModule;
@@ -17,6 +18,16 @@ const { engine, createWalls, createBallBody, createPhysicsInterface, updatePhysi
 const { initSelection, handleTouchStart, handleTouchMove, handleTouchEnd, getSelection, getTouchPosition, isSelectionActive, getSelectedWord } = selectionModule;
 const { wordValidator } = wordValidatorModule;
 const { scoring } = scoringModule;
+const {
+  drawLetterFromBag,
+  drawClusterFromPool,
+  shouldSpawnCluster,
+  determineRegion,
+  getClusterRegionBias,
+  getSpawnPositionForRegion,
+  checkVowelBalance,
+  resetSpawnSystem
+} = wordSpawnModule;
 
 // Initialize debug console first
 initDebugConsole();
@@ -162,15 +173,11 @@ try {
     }
   }
 
-  // Prepare all ball data to spawn
+  // Prepare all ball data to spawn (using new word spawn system)
   const ballsToSpawn = [];
   for (let i = 0; i < BALL.NUM_BALLS; i++) {
-    const letter = letterBag.draw();
-    if (!letter) {
-      console.error('Ran out of letters in bag!');
-      break;
-    }
-
+    // Use middle region for initial spawns to keep it balanced
+    const letter = drawLetterFromBag('MIDDLE');
     const radius = getRadiusForLetter(letter);
 
     ballsToSpawn.push({
@@ -180,7 +187,7 @@ try {
     });
   }
 
-  console.log(`Prepared ${ballsToSpawn.length} balls to spawn`);
+  console.log(`Prepared ${ballsToSpawn.length} balls to spawn (using word spawn system)`);
 
   // Ball spawning system - spawn balls one at a time from above
   let spawnIndex = 0;
@@ -203,21 +210,95 @@ try {
 
   // Spawn a single ball (used for continuous spawning)
   function spawnSingleBall() {
-    const letter = letterBag.draw();
-    if (!letter) {
-      console.warn('Bag is empty, cannot spawn ball');
-      return false;
+    // Check vowel balance periodically
+    checkVowelBalance(balls);
+
+    // Decide: single letter or cluster?
+    if (shouldSpawnCluster()) {
+      return spawnCluster();
+    } else {
+      return spawnSingleLetter();
     }
+  }
+
+  // Spawn a single letter with positional bias
+  function spawnSingleLetter() {
+    // Pick a random x position first
+    const spawnX = BALL.MIN_RADIUS + Math.random() * (logicalWidth - 2 * BALL.MIN_RADIUS);
+
+    // Determine region and get letter with bias
+    const region = determineRegion(spawnX, logicalWidth);
+    const letter = drawLetterFromBag(region);
 
     const radius = getRadiusForLetter(letter);
     const color = getColorForLetter(letter);
 
-    // Try to find non-colliding position
+    // Try to find non-colliding position near the chosen x
     const maxAttempts = 10;
     for (let attempt = 0; attempt < maxAttempts; attempt++) {
-      const spawnX = radius + Math.random() * (logicalWidth - 2 * radius);
+      // Add some randomness to x position
+      const jitter = (Math.random() - 0.5) * 100;
+      const actualX = Math.max(radius, Math.min(logicalWidth - radius, spawnX + jitter));
       const spawnY = -SPAWN.ZONE_HEIGHT + Math.random() * SPAWN.ZONE_HEIGHT;
 
+      if (!wouldCollide(actualX, spawnY, radius)) {
+        const newBall = {
+          x: actualX,
+          y: spawnY,
+          vx: 0,
+          vy: SPAWN.INITIAL_VELOCITY,
+          radius: radius,
+          color: color,
+          letter: letter,
+        };
+
+        newBall.body = createBallBody(newBall.x, newBall.y, newBall.radius);
+        Matter.Body.setVelocity(newBall.body, { x: 0, y: SPAWN.INITIAL_VELOCITY });
+        newBall.body.ballData = newBall;
+        addToWorld(newBall.body);
+        balls.push(newBall);
+
+        console.log(`[SPAWN] 📍 Single letter: ${letter} in ${region} region at (${Math.round(actualX)}, ${Math.round(spawnY)})`);
+        return true;
+      }
+    }
+
+    console.warn('Could not find valid spawn position for single letter');
+    return false;
+  }
+
+  // Spawn a cluster of letters close together
+  function spawnCluster() {
+    const letters = drawClusterFromPool();
+    const clusterString = letters.join('');
+
+    // Determine preferred region for this cluster
+    const preferredRegion = getClusterRegionBias(clusterString);
+
+    // Get a spawn position in the preferred region
+    const centerX = getSpawnPositionForRegion(preferredRegion, logicalWidth, BALL.MIN_RADIUS);
+    const centerY = -SPAWN.ZONE_HEIGHT + Math.random() * SPAWN.ZONE_HEIGHT;
+
+    console.log(`[SPAWN] 🎯 Cluster: "${clusterString}" in ${preferredRegion} region at (${Math.round(centerX)}, ${Math.round(centerY)})`);
+
+    // Spawn each letter in the cluster close together
+    const clusterRadius = 50; // pixels - letters almost touching
+    let successCount = 0;
+
+    for (let i = 0; i < letters.length; i++) {
+      const letter = letters[i];
+      const radius = getRadiusForLetter(letter);
+      const color = getColorForLetter(letter);
+
+      // Position letters in a circle around the center
+      const angle = (i / letters.length) * Math.PI * 2;
+      const offsetX = Math.cos(angle) * clusterRadius;
+      const offsetY = Math.sin(angle) * clusterRadius * 0.5; // Vertical offset smaller
+
+      const spawnX = Math.max(radius, Math.min(logicalWidth - radius, centerX + offsetX));
+      const spawnY = centerY + offsetY;
+
+      // Try to spawn this letter
       if (!wouldCollide(spawnX, spawnY, radius)) {
         const newBall = {
           x: spawnX,
@@ -235,14 +316,12 @@ try {
         addToWorld(newBall.body);
         balls.push(newBall);
 
-        return true;
+        successCount++;
       }
     }
 
-    // Failed to find valid position - return letter
-    letterBag.return(letter);
-    console.warn('Could not find valid spawn position');
-    return false;
+    console.log(`[SPAWN] ✓ Cluster spawned: ${successCount}/${letters.length} letters placed`);
+    return successCount > 0;
   }
 
   // Spawn the next ball
@@ -455,19 +534,18 @@ try {
     // Reset scoring
     scoring.resetScore();
 
+    // Reset word spawn system
+    resetSpawnSystem();
+
     // Reset spawning
     spawnIndex = 0;
     isRetrying = false;
 
-    // Prepare new balls to spawn
+    // Prepare new balls to spawn (using word spawn system)
     ballsToSpawn.length = 0;
     for (let i = 0; i < BALL.NUM_BALLS; i++) {
-      const letter = letterBag.draw();
-      if (!letter) {
-        console.error('Ran out of letters in bag!');
-        break;
-      }
-
+      // Use middle region for initial spawns to keep it balanced
+      const letter = drawLetterFromBag('MIDDLE');
       const radius = getRadiusForLetter(letter);
       ballsToSpawn.push({
         letter: letter,
