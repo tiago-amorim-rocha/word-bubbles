@@ -334,13 +334,22 @@ try {
         console.log(`Starting continuous spawn: ${numPairsPerBatch} bigram pairs (${numPairsPerBatch * 2} balls) every ${SPAWN.INTERVAL}ms`);
         continuousSpawnInterval = setInterval(() => {
           if (!isGameOver) {
+            // Spawn pairs with staggered delays to avoid collisions
             for (let i = 0; i < numPairsPerBatch; i++) {
-              spawnBigramPair();
+              setTimeout(() => {
+                if (!isGameOver) {
+                  spawnBigramPair();
+                }
+              }, i * 200); // 200ms delay between each pair
             }
 
-            // Log current spawn stats every interval
-            const stats = getSpawnStats(balls);
-            console.log(`[STATS] Total balls: ${stats.totalBalls} | Vowel ratio: ${(stats.vowelRatio * 100).toFixed(1)}%`);
+            // Log current spawn stats after all pairs spawn
+            setTimeout(() => {
+              if (!isGameOver) {
+                const stats = getSpawnStats(balls);
+                console.log(`[STATS] Total balls: ${stats.totalBalls} | Vowel ratio: ${(stats.vowelRatio * 100).toFixed(1)}%`);
+              }
+            }, numPairsPerBatch * 200 + 100);
           }
         }, SPAWN.INTERVAL);
 
