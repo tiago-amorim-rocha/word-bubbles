@@ -26,8 +26,7 @@ index.html              - Entry point, loads game.js as ES6 module
   - **Distribution gain**: How much the pair reduces distance between H and T
   - **Bigram goodness**: Base weight from W, plus bonuses for board extensions
   - **Vowel balance**: Maintains ~45% vowels (Y counted as 0.2 vowel)
-  - **Safety penalties**: Caps rare letters, prefers 'qu' for Q, penalizes unusual doubles
-  - **Recency penalty**: Tracks last 10 spawns, penalizes repeats (15 pts → 2 pts decay)
+  - **Overrep penalty**: Progressive penalty based on current board state (15pts per 1x over target)
 - **Dynamic adaptation**: Continuously evaluates board state to spawn optimal pairs
 - Exposed as `window.bigramSpawnSystem` for debugging
 

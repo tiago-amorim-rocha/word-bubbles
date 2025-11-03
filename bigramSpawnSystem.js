@@ -52,39 +52,6 @@ export const BIGRAM_WEIGHTS = {
 // Common double letters (for safety penalty reduction)
 const COMMON_DOUBLES = new Set(['ee', 'll', 'ss', 'oo', 'tt', 'ff', 'mm', 'nn']);
 
-// ========== Recency Tracking ==========
-// Track recently spawned bigrams to encourage variety
-const recentlySpawned = [];
-const MAX_RECENT_HISTORY = 10; // Track last 10 spawns
-
-/**
- * Add a bigram to the recency tracker
- */
-function trackSpawnedBigram(bigram) {
-  recentlySpawned.unshift(bigram.toUpperCase());
-  if (recentlySpawned.length > MAX_RECENT_HISTORY) {
-    recentlySpawned.pop();
-  }
-}
-
-/**
- * Calculate recency penalty for a bigram
- * More recent = higher penalty
- */
-function calculateRecencyPenalty(bigram) {
-  const upperBigram = bigram.toUpperCase();
-  let penalty = 0;
-
-  for (let i = 0; i < recentlySpawned.length; i++) {
-    if (recentlySpawned[i] === upperBigram) {
-      // Decay penalty: most recent (i=0) gets 15 points, then 12, 9, 6, 3...
-      penalty += Math.max(15 - i * 3, 2);
-    }
-  }
-
-  return penalty;
-}
-
 // ========== Histogram Tracking ==========
 
 /**
@@ -226,34 +193,43 @@ function calculateVowelBalance(letter1, letter2, currentRatio) {
   return 0; // Balanced, no bonus
 }
 
-// ========== Safety Penalties ==========
+// ========== Overrepresentation Penalty ==========
 
 /**
- * Calculate penalties for potentially problematic pairs
+ * Calculate penalty based on how over-represented letters are on the board
+ * This encourages variety by penalizing letters that are already abundant
  */
-function calculateSafetyPenalties(letter1, letter2, histogram) {
+function calculateOverrepresentationPenalty(letter1, letter2, histogram) {
   let penalty = 0;
 
-  // Penalty for exceeding target significantly
   const letter1Target = TARGET_DISTRIBUTION[letter1] || 1;
   const letter2Target = TARGET_DISTRIBUTION[letter2] || 1;
   const letter1Current = histogram[letter1] || 0;
   const letter2Current = histogram[letter2] || 0;
 
-  if (letter1Current > letter1Target * 1.5) {
-    penalty += 5;
+  // Calculate how much each letter exceeds its target (as a ratio)
+  const letter1Ratio = letter1Current / letter1Target;
+  const letter2Ratio = letter2Current / letter2Target;
+
+  // Progressive penalty: the more over-represented, the higher the penalty
+  // At target (ratio=1.0): 0 penalty
+  // At 1.2x target: ~3 penalty per letter
+  // At 1.5x target: ~7.5 penalty per letter
+  // At 2x target: ~15 penalty per letter
+  if (letter1Ratio >= 1.0) {
+    penalty += (letter1Ratio - 1.0) * 15;
   }
-  if (letter2Current > letter2Target * 1.5) {
-    penalty += 5;
+  if (letter2Ratio >= 1.0) {
+    penalty += (letter2Ratio - 1.0) * 15;
   }
 
-  // Penalty for rare letters (unless we really need them)
+  // Additional penalty for rare letters (unless we really need them)
   const rareLetters = new Set(['Q', 'X', 'Z', 'J']);
   if (rareLetters.has(letter1) && letter1Current >= letter1Target) {
-    penalty += 8;
+    penalty += 10;
   }
   if (rareLetters.has(letter2) && letter2Current >= letter2Target) {
-    penalty += 8;
+    penalty += 10;
   }
 
   // Special handling for Q - strongly prefer 'qu'
@@ -268,7 +244,7 @@ function calculateSafetyPenalties(letter1, letter2, histogram) {
     penalty -= 10; // Bonus for qu
   }
 
-  // Light penalty for double letters (unless common)
+  // Light penalty for unusual double letters
   if (letter1 === letter2 && !COMMON_DOUBLES.has(bigram)) {
     penalty += 3;
   }
@@ -318,16 +294,14 @@ function scoreBigram(bigram, histogram, targets, balls, currentVowelRatio) {
   const distributionGain = calculateDistributionGain(histogram, targets, letter1, letter2);
   const bigramGoodness = calculateBigramGoodness(bigram, balls);
   const vowelBalance = calculateVowelBalance(letter1, letter2, currentVowelRatio);
-  const safetyPenalty = calculateSafetyPenalties(letter1, letter2, histogram);
-  const recencyPenalty = calculateRecencyPenalty(bigram);
+  const overrepPenalty = calculateOverrepresentationPenalty(letter1, letter2, histogram);
 
   // Combine scores (weighted)
   const score =
-    distributionGain * 2.0 +    // Distribution is important
-    bigramGoodness * 1.5 +      // Bigram quality is important
-    vowelBalance * 1.0 -        // Vowel balance matters
-    safetyPenalty * 1.0 -       // Penalties reduce score
-    recencyPenalty * 1.0;       // Recency penalty for variety
+    distributionGain * 2.0 +      // Distribution is important
+    bigramGoodness * 1.5 +        // Bigram quality is important
+    vowelBalance * 1.0 -          // Vowel balance matters
+    overrepPenalty * 1.0;         // Penalize over-represented letters
 
   return {
     bigram,
@@ -336,8 +310,7 @@ function scoreBigram(bigram, histogram, targets, balls, currentVowelRatio) {
       distributionGain,
       bigramGoodness,
       vowelBalance,
-      safetyPenalty,
-      recencyPenalty
+      overrepPenalty
     }
   };
 }
@@ -363,20 +336,22 @@ export function selectBigramPair(balls) {
   // Select the best one
   const best = scoredCandidates[0];
 
-  // Track this bigram for recency penalties
-  trackSpawnedBigram(best.bigram);
-
   // Log selection for debugging
   console.log(`[BIGRAM] 🎯 Selected: "${best.bigram}" (score: ${best.score.toFixed(2)})`);
   console.log(`[BIGRAM]   Distribution gain: ${best.components.distributionGain.toFixed(2)}`);
   console.log(`[BIGRAM]   Bigram goodness: ${best.components.bigramGoodness.toFixed(2)}`);
   console.log(`[BIGRAM]   Vowel balance: ${best.components.vowelBalance.toFixed(2)}`);
-  console.log(`[BIGRAM]   Safety penalty: ${best.components.safetyPenalty.toFixed(2)}`);
-  console.log(`[BIGRAM]   Recency penalty: ${best.components.recencyPenalty.toFixed(2)}`);
+  console.log(`[BIGRAM]   Overrep penalty: ${best.components.overrepPenalty.toFixed(2)}`);
   console.log(`[BIGRAM]   Current vowel ratio: ${(currentVowelRatio * 100).toFixed(1)}%`);
-  if (recentlySpawned.length > 0) {
-    console.log(`[BIGRAM]   Recent spawns: ${recentlySpawned.slice(0, 5).join(', ')}`);
-  }
+
+  // Show current state of the letters being spawned
+  const letter1 = best.bigram[0];
+  const letter2 = best.bigram[1];
+  const letter1Current = histogram[letter1] || 0;
+  const letter2Current = histogram[letter2] || 0;
+  const letter1Target = TARGET_DISTRIBUTION[letter1] || 1;
+  const letter2Target = TARGET_DISTRIBUTION[letter2] || 1;
+  console.log(`[BIGRAM]   Board state: ${letter1}=${letter1Current}/${letter1Target}, ${letter2}=${letter2Current}/${letter2Target}`);
 
   return {
     letter1: best.bigram[0],
@@ -407,8 +382,6 @@ if (typeof window !== 'undefined') {
     selectBigramPair,
     getSpawnStats,
     TARGET_DISTRIBUTION,
-    BIGRAM_WEIGHTS,
-    getRecentSpawns: () => [...recentlySpawned],
-    clearRecentSpawns: () => { recentlySpawned.length = 0; }
+    BIGRAM_WEIGHTS
   };
 }
