@@ -41,11 +41,13 @@ index.html          - Entry point, loads game.js as ES6 module
 - Console output capture
 
 ## Recent Changes
+- Removed freeze ball feature (replaced with delete ball)
+- Added double-tap to delete ball feature (spawns 2 new balls after delete)
+- Halved automatic ball spawning rate (10s → 20s intervals)
+- Word creation now spawns 2 new balls (keeping ball count dynamic)
 - Removed tap-to-force explosion mechanic
 - Refactored into modular architecture (5 modules + main)
-- Removed LETTER_FREQUENCY - ball size now based on bag distribution only
 - Physics stability improvements (reduced jitter, better settling)
-- Mass scales with ball size for realistic interactions
 - Gravity at 1.0, bounce at 0.8
 
 ## How to Update This File
