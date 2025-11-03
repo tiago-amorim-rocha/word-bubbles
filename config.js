@@ -23,7 +23,7 @@ export const BALL = {
 export const SPAWN = {
   DELAY: 50,              // ms between spawn attempts
   RETRY_DELAY: 17,        // ms to wait if collision detected
-  ZONE_HEIGHT: 100,       // Height above screen to spawn
+  ZONE_HEIGHT: 200,       // Height above screen to spawn (increased for batch spawning)
   INITIAL_VELOCITY: 3,    // Initial downward velocity
   INTERVAL: 20000,        // ms between automatic spawns (survival mode) - halved rate
   BATCH_SIZE: 5           // Number of balls to spawn per interval
