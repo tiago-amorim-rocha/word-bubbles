@@ -68,6 +68,14 @@ export const DOUBLE_TAP = {
   DELAY: 300   // ms between taps to detect double-tap
 };
 
+// ========== Finger Tracking Collider ==========
+export const FINGER_COLLIDER = {
+  RADIUS: 80,              // Same as static invisible bubble
+  VISUAL_OPACITY: 0.3,     // Opacity for rendering (0-1)
+  VISUAL_COLOR: '#4CAF50', // Green tint to distinguish from static collider
+  STROKE_WIDTH: 2          // Width of outline
+};
+
 // ========== Letter Bag Distribution (Optimized for word formation, 100 total) ==========
 export const LETTER_BAG_DISTRIBUTION = {
   // Vowels - 32 total (32%) - reduced from Scrabble's 42% for better word variety
