@@ -70,7 +70,7 @@ export const DOUBLE_TAP = {
 
 // ========== Finger Tracking Collider ==========
 export const FINGER_COLLIDER = {
-  RADIUS: 80,              // Same as static invisible bubble
+  RADIUS: 40,              // Same as static invisible bubble
   VISUAL_OPACITY: 0.3,     // Opacity for rendering (0-1)
   VISUAL_COLOR: '#4CAF50', // Green tint to distinguish from static collider
   STROKE_WIDTH: 2          // Width of outline
