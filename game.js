@@ -458,8 +458,16 @@ try {
       const ballTopEdge = ball.y - ball.radius;
       const speed = Math.sqrt(ball.vx * ball.vx + ball.vy * ball.vy);
 
-      // Only trigger danger for balls that are moving slowly (settled or near-settled)
+      // Debug: Log any ball near danger zone
       if (ballTopEdge <= dangerZoneY && speed < DANGER.VELOCITY_THRESHOLD) {
+        console.log(`[DANGER] Ball ${ball.letter} at y=${Math.round(ball.y)}, topEdge=${Math.round(ballTopEdge)}, speed=${speed.toFixed(2)}, dangerLine=${Math.round(dangerZoneY)}`);
+      }
+
+      // Only trigger danger for balls that are:
+      // 1. Top edge touching danger line
+      // 2. Moving slowly (settled or near-settled)
+      // 3. In the visible area (not in spawn zone above screen)
+      if (ballTopEdge <= dangerZoneY && speed < DANGER.VELOCITY_THRESHOLD && ball.y > 0) {
         ballsInDanger.add(ball);
       }
     });
@@ -490,7 +498,16 @@ try {
     if (isGameOver) return;
 
     isGameOver = true;
+
+    // Log detailed info about what caused game over
     console.log('💀 GAME OVER - Screen full!');
+    console.log(`[GAME OVER] Danger zone Y: ${Math.round(dangerZoneY)}px`);
+    console.log(`[GAME OVER] Balls in danger: ${ballsInDanger.size}`);
+    ballsInDanger.forEach(ball => {
+      const ballTopEdge = ball.y - ball.radius;
+      const speed = Math.sqrt(ball.vx * ball.vx + ball.vy * ball.vy);
+      console.log(`[GAME OVER]   - ${ball.letter} at y=${Math.round(ball.y)}, topEdge=${Math.round(ballTopEdge)}, speed=${speed.toFixed(2)}`);
+    });
 
     // Stop continuous spawning
     if (continuousSpawnInterval) {
