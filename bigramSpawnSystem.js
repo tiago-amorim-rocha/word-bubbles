@@ -1,12 +1,16 @@
 // bigramSpawnSystem.js - Intelligent bigram-based letter spawning with distribution tracking
 
 // ========== Target Distribution ==========
-// Scaled to board size, represents ideal letter counts
-export const TARGET_DISTRIBUTION = {
-  'E': 12, 'T': 9, 'A': 8, 'O': 7, 'I': 7, 'N': 7, 'S': 6, 'H': 6, 'R': 6,
-  'D': 4, 'L': 4, 'C': 3, 'U': 3, 'M': 2, 'W': 2, 'F': 2, 'G': 2, 'Y': 2,
-  'P': 2, 'B': 1, 'V': 1, 'K': 1, 'X': 0.2, 'J': 0.2, 'Q': 0.1, 'Z': 0.1
+// Ideal letter percentages based on English letter frequency
+// These represent what % of the board each letter should occupy
+export const TARGET_DISTRIBUTION_PCT = {
+  'E': 12.7, 'T': 9.1, 'A': 8.2, 'O': 7.5, 'I': 7.0, 'N': 6.7, 'S': 6.3, 'H': 6.1, 'R': 6.0,
+  'D': 4.3, 'L': 4.0, 'C': 2.8, 'U': 2.8, 'M': 2.4, 'W': 2.4, 'F': 2.2, 'G': 2.0, 'Y': 2.0,
+  'P': 1.9, 'B': 1.5, 'V': 1.0, 'K': 0.8, 'X': 0.15, 'J': 0.15, 'Q': 0.10, 'Z': 0.07
 };
+
+// Legacy export for compatibility
+export const TARGET_DISTRIBUTION = TARGET_DISTRIBUTION_PCT;
 
 // ========== Vowel Configuration ==========
 const VOWELS = new Set(['A', 'E', 'I', 'O', 'U']);
@@ -96,24 +100,31 @@ export function calculateVowelRatio(balls) {
 // ========== Distribution Gain Calculation ==========
 
 /**
- * Calculate how much a pair reduces the distance between histogram and target
- * Lower distance is better
+ * Calculate how much a pair reduces the distance between current % and target %
+ * Compares board composition percentages to ideal English frequency
  */
-function calculateDistributionGain(histogram, targets, letter1, letter2) {
-  // Calculate current distance
+function calculateDistributionGain(histogram, targetsPct, letter1, letter2, currentBoardSize) {
+  if (currentBoardSize === 0) return 2; // Empty board, any pair is fine
+
+  // Calculate current percentage distance
   let currentDistance = 0;
-  for (const letter in targets) {
-    currentDistance += Math.abs(histogram[letter] - targets[letter]);
+  for (const letter in targetsPct) {
+    const currentPct = ((histogram[letter] || 0) / currentBoardSize) * 100;
+    const targetPct = targetsPct[letter];
+    currentDistance += Math.abs(currentPct - targetPct);
   }
 
-  // Calculate distance after adding the pair
+  // Calculate distance after adding the pair (board size increases by 2)
+  const newBoardSize = currentBoardSize + 2;
   const newHistogram = { ...histogram };
   newHistogram[letter1] = (newHistogram[letter1] || 0) + 1;
   newHistogram[letter2] = (newHistogram[letter2] || 0) + 1;
 
   let newDistance = 0;
-  for (const letter in targets) {
-    newDistance += Math.abs(newHistogram[letter] - targets[letter]);
+  for (const letter in targetsPct) {
+    const newPct = ((newHistogram[letter] || 0) / newBoardSize) * 100;
+    const targetPct = targetsPct[letter];
+    newDistance += Math.abs(newPct - targetPct);
   }
 
   // Gain is the reduction in distance (positive is good)
@@ -197,41 +208,45 @@ function calculateVowelBalance(letter1, letter2, currentRatio) {
 
 /**
  * Calculate penalty based on how over-represented letters are on the board
- * This encourages variety by penalizing letters that are already abundant
+ * Compares current board % to ideal % for each letter
  */
-function calculateOverrepresentationPenalty(letter1, letter2, histogram) {
+function calculateOverrepresentationPenalty(letter1, letter2, histogram, boardSize) {
+  if (boardSize === 0) return 0;
+
   let penalty = 0;
 
-  const letter1Target = TARGET_DISTRIBUTION[letter1] || 1;
-  const letter2Target = TARGET_DISTRIBUTION[letter2] || 1;
+  const letter1TargetPct = TARGET_DISTRIBUTION_PCT[letter1] || 1.0;
+  const letter2TargetPct = TARGET_DISTRIBUTION_PCT[letter2] || 1.0;
   const letter1Current = histogram[letter1] || 0;
   const letter2Current = histogram[letter2] || 0;
 
-  // Calculate how much each letter exceeds its target (as a ratio)
-  const letter1Ratio = letter1Current / letter1Target;
-  const letter2Ratio = letter2Current / letter2Target;
+  // Calculate current percentage on board
+  const letter1CurrentPct = (letter1Current / boardSize) * 100;
+  const letter2CurrentPct = (letter2Current / boardSize) * 100;
 
-  // Progressive penalty: starts at 0.6x target to encourage variety
-  // At 0.6x target (60%): 0 penalty
-  // At 0.8x target (80%): 4 penalty per letter
-  // At 1.0x target (100%): 8 penalty per letter
-  // At 1.2x target (120%): 12 penalty per letter
-  // At 1.5x target (150%): 18 penalty per letter
-  // At 2.0x target (200%): 28 penalty per letter
-  const threshold = 0.6;
-  if (letter1Ratio >= threshold) {
-    penalty += (letter1Ratio - threshold) * 20;
+  // Calculate deviation from target (percentage points)
+  const letter1Deviation = letter1CurrentPct - letter1TargetPct;
+  const letter2Deviation = letter2CurrentPct - letter2TargetPct;
+
+  // Progressive penalty based on how far over the target percentage
+  // For each percentage point over target, apply penalty
+  // Examples with E (target 12.7%):
+  // - Board: 30 balls, 4 E's (13.3%) = +0.6pp over = 1.2 penalty
+  // - Board: 30 balls, 6 E's (20.0%) = +7.3pp over = 14.6 penalty
+  // - Board: 30 balls, 3 E's (10.0%) = -2.7pp under = 0 penalty (want more E!)
+  if (letter1Deviation > 0) {
+    penalty += letter1Deviation * 2.0;
   }
-  if (letter2Ratio >= threshold) {
-    penalty += (letter2Ratio - threshold) * 20;
+  if (letter2Deviation > 0) {
+    penalty += letter2Deviation * 2.0;
   }
 
   // Additional penalty for rare letters (unless we really need them)
   const rareLetters = new Set(['Q', 'X', 'Z', 'J']);
-  if (rareLetters.has(letter1) && letter1Current >= letter1Target) {
+  if (rareLetters.has(letter1) && letter1Deviation >= 0) {
     penalty += 10;
   }
-  if (rareLetters.has(letter2) && letter2Current >= letter2Target) {
+  if (rareLetters.has(letter2) && letter2Deviation >= 0) {
     penalty += 10;
   }
 
@@ -292,12 +307,13 @@ function generateCandidateBigrams(count = 10) {
 function scoreBigram(bigram, histogram, targets, balls, currentVowelRatio) {
   const letter1 = bigram[0];
   const letter2 = bigram[1];
+  const boardSize = balls.length;
 
   // Calculate all components
-  const distributionGain = calculateDistributionGain(histogram, targets, letter1, letter2);
+  const distributionGain = calculateDistributionGain(histogram, targets, letter1, letter2, boardSize);
   const bigramGoodness = calculateBigramGoodness(bigram, balls);
   const vowelBalance = calculateVowelBalance(letter1, letter2, currentVowelRatio);
-  const overrepPenalty = calculateOverrepresentationPenalty(letter1, letter2, histogram);
+  const overrepPenalty = calculateOverrepresentationPenalty(letter1, letter2, histogram, boardSize);
 
   // Combine scores (weighted)
   const score =

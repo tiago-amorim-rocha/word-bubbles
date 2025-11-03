@@ -20,13 +20,14 @@ index.html              - Entry point, loads game.js as ES6 module
 
 ### Bigram Spawn System (NEW)
 - **Histogram tracking (H)**: Monitors current letter counts on board
-- **Target distribution (T)**: Ideal letter counts (E=12, T=9, A=8, etc.)
+- **Target distribution (T)**: Ideal letter percentages (E=12.7%, T=9.1%, A=8.2%, etc.)
 - **Bigram weights (W)**: Ranked common bigrams (th, he, in, er, etc.)
 - **Intelligent pair selection**: Always spawns 2-letter pairs (bigrams) based on:
-  - **Distribution gain**: How much the pair reduces distance between H and T
+  - **Distribution gain**: Reduces distance between current % and target % distribution
   - **Bigram goodness**: Base weight from W, plus bonuses for board extensions
   - **Vowel balance**: Maintains ~45% vowels (Y counted as 0.2 vowel)
-  - **Overrep penalty**: Progressive penalty starts at 60% of target (20pts per 1x over threshold)
+  - **Overrep penalty**: 2 pts per percentage point over ideal (adapts to board size)
+- **Percentage-based**: Compares board composition % to English frequency %
 - **Dynamic adaptation**: Continuously evaluates board state to spawn optimal pairs
 - Exposed as `window.bigramSpawnSystem` for debugging
 
