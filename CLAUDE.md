@@ -3,28 +3,32 @@
 ## Quick Context
 A physics-based game where letter balls (A-Z) drop from above and settle using Matter.js. Ball size and mass correlate with letter frequency in English.
 
-## Architecture (6 modules + 1 main)
+## Architecture (7 modules + 1 main)
 
 ```
-index.html             - Entry point, loads game.js as ES6 module
-├── config.js          - All constants (physics, spawning, sizes)
-├── debugConsole.js    - Debug UI with physics controls (self-contained)
-├── letterBag.js       - Legacy letter bag (kept for compatibility)
-├── wordSpawnSystem.js - Advanced spawn system: weighted bags, clusters, positional bias
-├── physics.js         - Matter.js engine setup & physics helpers
-└── game.js            - Main: canvas, spawning, rendering, coordination
+index.html              - Entry point, loads game.js as ES6 module
+├── config.js           - All constants (physics, spawning, sizes)
+├── debugConsole.js     - Debug UI with physics controls (self-contained)
+├── letterBag.js        - Legacy letter bag (kept for compatibility)
+├── wordSpawnSystem.js  - Legacy spawn system (kept for compatibility)
+├── bigramSpawnSystem.js - NEW: Intelligent bigram-based spawning with distribution tracking
+├── physics.js          - Matter.js engine setup & physics helpers
+└── game.js             - Main: canvas, spawning, rendering, coordination
 ```
 
 ## Key Systems
 
-### Word Spawn System
-- **Infinite weighted bag** (~130 total weight, 40% vowels, 60% consonants)
-- **Cluster spawning** (15% chance): Multi-letter fragments (TH, ING, ER, etc.) spawn close together
-- **Positional bias**: Letters biased by screen region (Starters left, Middles center, Enders right)
-- **Auto-balancing**: Monitors vowel % every 5 spawns, adjusts next 5 spawns if needed
-- **Region-aware clusters**: Prefixes spawn left (UN, RE), suffixes right (ED, LY), middles center (ING, AND)
-- Configuration exposed as `window.SPAWN_CONFIG` for live tuning
-- Legacy letterBag.js kept for compatibility (still used for return tracking)
+### Bigram Spawn System (NEW)
+- **Histogram tracking (H)**: Monitors current letter counts on board
+- **Target distribution (T)**: Ideal letter counts (E=12, T=9, A=8, etc.)
+- **Bigram weights (W)**: Ranked common bigrams (th, he, in, er, etc.)
+- **Intelligent pair selection**: Always spawns 2-letter pairs (bigrams) based on:
+  - **Distribution gain**: How much the pair reduces distance between H and T
+  - **Bigram goodness**: Base weight from W, plus bonuses for board extensions
+  - **Vowel balance**: Maintains ~45% vowels (Y counted as 0.2 vowel)
+  - **Safety penalties**: Caps rare letters, prefers 'qu' for Q, penalizes unusual doubles
+- **Dynamic adaptation**: Continuously evaluates board state to spawn optimal pairs
+- Exposed as `window.bigramSpawnSystem` for debugging
 
 ### Physics (Matter.js)
 - Gravity: 0.5 (customizable via debug console)
@@ -45,15 +49,15 @@ index.html             - Entry point, loads game.js as ES6 module
 - Console output capture
 
 ## Recent Changes
-- **NEW: Word spawn system** - Intelligent letter spawning with clusters, positional bias, and auto-balancing
-- Removed freeze ball feature (replaced with delete ball)
+- **🎯 NEW: Bigram spawn system** - Complete redesign: histogram-based pair selection with distribution tracking, vowel balancing, and intelligent scoring
+- Always spawns letter pairs (bigrams) instead of single letters or clusters
+- Dynamic adaptation to board state using multi-factor scoring
+- Legacy spawn systems kept for compatibility
 - Added double-tap to delete ball feature (spawns 2 new balls after delete)
 - Halved automatic ball spawning rate (10s → 20s intervals)
 - Word creation now spawns 2 new balls (keeping ball count dynamic)
-- Removed tap-to-force explosion mechanic
-- Refactored into modular architecture (6 modules + main)
-- Physics stability improvements (reduced jitter, better settling)
-- Gravity at 1.0, bounce at 0.8
+- Refactored into modular architecture (7 modules + main)
+- Physics: Gravity 1.0, bounce 0.8
 
 ## How to Update This File
 **Update when:**
