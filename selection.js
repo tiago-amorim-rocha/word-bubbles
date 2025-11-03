@@ -10,10 +10,12 @@ let currentTouchPos = null;
 
 // Get all balls (will be set by game.js)
 let allBalls = [];
+let invisibleBubble = null;
 
 // Initialize selection system
-export function initSelection(balls) {
+export function initSelection(balls, invBubble = null) {
   allBalls = balls;
+  invisibleBubble = invBubble;
 }
 
 // Get current selection
