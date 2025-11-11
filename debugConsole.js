@@ -160,7 +160,7 @@ export function initDebugConsole() {
   toggleBtn.textContent = '🐛';
   Object.assign(toggleBtn.style, {
     position: 'fixed',
-    bottom: '100px',
+    top: '20px',
     right: '20px',
     width: '40px',
     height: '40px',
