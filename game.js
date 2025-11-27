@@ -15,7 +15,7 @@ const bigramSpawnModule = await import(`./bigramSpawnSystem.js?v=${v}`);
 const { initDebugConsole } = debugConsoleModule;
 const { letterBag } = letterBagModule;
 const { PHYSICS, BALL, SPAWN, SELECTION, SCORE, DANGER, DOUBLE_TAP, FINGER_COLLIDER, getColorForLetter, getRadiusForLetter } = configModule;
-const { engine, createWalls, createBallBody, createPhysicsInterface, updatePhysics, addToWorld, removeFromWorld, createInvisibleBubble, createFingerCollider, updateFingerColliderPosition } = physicsModule;
+const { engine, createWalls, createBallBody, createPhysicsInterface, updatePhysics, addToWorld, removeFromWorld, createInvisibleBubble, createFingerCollider, updateFingerColliderPosition, initGyroscope, disableGyroscope, getGyroscopeStatus } = physicsModule;
 const { initSelection, handleTouchStart, handleTouchMove, handleTouchEnd, getSelection, getTouchPosition, isSelectionActive, getSelectedWord } = selectionModule;
 const { wordValidator } = wordValidatorModule;
 const { scoring } = scoringModule;
@@ -150,8 +150,66 @@ try {
   // Finger tracking collider state
   let fingerCollider = null;
 
+  // Gyroscope state
+  let isGyroscopeActive = false;
+
   // Expose physics interface to debug console
   createPhysicsInterface(balls, walls);
+
+  // Create gyroscope toggle button
+  const gyroButton = document.createElement('button');
+  gyroButton.textContent = '📱';
+  gyroButton.style.cssText = `
+    position: fixed;
+    bottom: 20px;
+    left: 20px;
+    width: 50px;
+    height: 50px;
+    border-radius: 50%;
+    border: 2px solid #4CAF50;
+    background: rgba(255, 255, 255, 0.95);
+    font-size: 24px;
+    cursor: pointer;
+    z-index: 1000;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.2);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0;
+  `;
+  document.body.appendChild(gyroButton);
+
+  // Toggle gyroscope on button click
+  gyroButton.addEventListener('click', async () => {
+    if (isGyroscopeActive) {
+      // Disable gyroscope
+      disableGyroscope();
+      isGyroscopeActive = false;
+      gyroButton.style.background = 'rgba(255, 255, 255, 0.95)';
+      gyroButton.style.borderColor = '#4CAF50';
+      console.log('Gyroscope disabled');
+    } else {
+      // Enable gyroscope
+      const success = await initGyroscope();
+      if (success) {
+        isGyroscopeActive = true;
+        gyroButton.style.background = 'rgba(76, 175, 80, 0.95)';
+        gyroButton.style.borderColor = '#388E3C';
+        console.log('Gyroscope enabled - tilt your device!');
+      } else {
+        console.error('Failed to enable gyroscope');
+        alert('Could not enable gyroscope. Make sure your device supports motion sensors and permissions are granted.');
+      }
+    }
+  });
+
+  // Expose gyroscope status to window for debugging
+  window.gameGyroscope = {
+    get status() {
+      return getGyroscopeStatus();
+    },
+    toggle: () => gyroButton.click()
+  };
 
   // Delete ball function
   function deleteBall(ball) {

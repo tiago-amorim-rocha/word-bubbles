@@ -37,6 +37,10 @@ index.html              - Entry point, loads game.js as ES6 module
 - Friction: 0.15 (surface), 0.02 (air)
 - Sleep threshold: 60 (balls rest when nearly motionless)
 - Mass scales with ball size (density ∝ radius)
+- **Gyroscope support**: Toggle with 📱 button (bottom-left) to make gravity follow device tilt
+  - iOS 13+ requests permission automatically
+  - Tilting left/right and forward/back changes gravity direction
+  - Green button indicates active gyroscope mode
 
 ### Ball Properties
 - Radius: 30-45px (based on bag count: E=12 largest, Q/K/J/X=1 smallest)
@@ -50,6 +54,7 @@ index.html              - Entry point, loads game.js as ES6 module
 - Console output capture
 
 ## Recent Changes
+- **📱 NEW: Gyroscope physics** - Device tilt controls gravity direction (toggle with 📱 button)
 - **🎯 NEW: Bigram spawn system** - Complete redesign: histogram-based pair selection with distribution tracking, vowel balancing, and intelligent scoring
 - Always spawns letter pairs (bigrams) instead of single letters or clusters
 - Dynamic adaptation to board state using multi-factor scoring
