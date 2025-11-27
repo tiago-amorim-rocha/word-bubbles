@@ -67,8 +67,11 @@ try {
   const ctx = canvas.getContext('2d');
 
   // Logical dimensions (fixed at startup - portrait only game)
-  const logicalWidth = Math.round(window.visualViewport?.width || window.innerWidth);
-  const logicalHeight = Math.round(window.visualViewport?.height || window.innerHeight);
+  // Force portrait: width should always be smaller than height
+  const viewportWidth = Math.round(window.visualViewport?.width || window.innerWidth);
+  const viewportHeight = Math.round(window.visualViewport?.height || window.innerHeight);
+  const logicalWidth = Math.min(viewportWidth, viewportHeight);
+  const logicalHeight = Math.max(viewportWidth, viewportHeight);
 
   // Detect safe area insets (for iOS notch/Dynamic Island)
   function getSafeAreaTop() {
@@ -96,8 +99,13 @@ try {
   function resize() {
     try {
       const dpr = Math.max(1, window.devicePixelRatio || 1);
-      const vw = Math.round(window.visualViewport?.width || window.innerWidth);
-      const vh = Math.round(window.visualViewport?.height || window.innerHeight);
+      let vw = Math.round(window.visualViewport?.width || window.innerWidth);
+      let vh = Math.round(window.visualViewport?.height || window.innerHeight);
+
+      // Force portrait orientation: swap dimensions if needed
+      if (vw > vh) {
+        [vw, vh] = [vh, vw];
+      }
 
       // Ensure valid dimensions
       if (!vw || !vh || vw <= 0 || vh <= 0) {
@@ -136,8 +144,13 @@ try {
 
   // Initialize canvas dimensions first (without calling resize to avoid TDZ issues)
   const initialDpr = Math.max(1, window.devicePixelRatio || 1);
-  const initialVw = Math.round(window.visualViewport?.width || window.innerWidth);
-  const initialVh = Math.round(window.visualViewport?.height || window.innerHeight);
+  let initialVw = Math.round(window.visualViewport?.width || window.innerWidth);
+  let initialVh = Math.round(window.visualViewport?.height || window.innerHeight);
+
+  // Force portrait orientation: swap dimensions if needed
+  if (initialVw > initialVh) {
+    [initialVw, initialVh] = [initialVh, initialVw];
+  }
 
   canvas.style.width = initialVw + 'px';
   canvas.style.height = initialVh + 'px';
