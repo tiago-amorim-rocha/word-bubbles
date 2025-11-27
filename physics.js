@@ -14,6 +14,117 @@ export const engine = Engine.create({
   gravity: { x: 0, y: PHYSICS.GRAVITY }
 });
 
+// Gyroscope integration for dynamic gravity
+let gyroscopeEnabled = false;
+let gyroscopePermissionGranted = false;
+
+// Initialize gyroscope (request permission for iOS 13+)
+export async function initGyroscope() {
+  // Check if DeviceOrientation API is available
+  if (!window.DeviceOrientationEvent) {
+    console.warn('DeviceOrientation API not supported');
+    return false;
+  }
+
+  // iOS 13+ requires permission request
+  if (typeof DeviceOrientationEvent.requestPermission === 'function') {
+    try {
+      const permission = await DeviceOrientationEvent.requestPermission();
+      if (permission === 'granted') {
+        gyroscopePermissionGranted = true;
+        enableGyroscope();
+        return true;
+      } else {
+        console.warn('Gyroscope permission denied');
+        return false;
+      }
+    } catch (error) {
+      console.error('Error requesting gyroscope permission:', error);
+      return false;
+    }
+  } else {
+    // Non-iOS or older iOS - no permission needed
+    gyroscopePermissionGranted = true;
+    enableGyroscope();
+    return true;
+  }
+}
+
+// Enable gyroscope tracking
+function enableGyroscope() {
+  if (gyroscopeEnabled) return;
+
+  window.addEventListener('deviceorientation', handleOrientation);
+  gyroscopeEnabled = true;
+  console.log('✓ Gyroscope enabled - gravity will follow device tilt');
+}
+
+// Disable gyroscope tracking
+export function disableGyroscope() {
+  if (!gyroscopeEnabled) return;
+
+  window.removeEventListener('deviceorientation', handleOrientation);
+  gyroscopeEnabled = false;
+
+  // Reset gravity to default downward
+  engine.gravity.x = 0;
+  engine.gravity.y = PHYSICS.GRAVITY;
+  console.log('✓ Gyroscope disabled - gravity reset to default');
+}
+
+// Handle device orientation changes
+function handleOrientation(event) {
+  if (!gyroscopeEnabled) return;
+
+  // beta: front-to-back tilt (-180 to 180, positive = forward)
+  // gamma: left-to-right tilt (-90 to 90, positive = right)
+  const beta = event.beta;
+  const gamma = event.gamma;
+
+  if (beta === null || gamma === null) return;
+
+  // Convert tilt angles to gravity components
+  // We want the gravity to "pull" in the direction the device is tilted
+  // gamma controls x-axis (left/right tilt)
+  // beta controls y-axis (forward/back tilt)
+
+  // Normalize gamma to -1 to 1 range (clamp at ±90 degrees)
+  const maxTilt = 90; // degrees
+  const normalizedGamma = Math.max(-1, Math.min(1, gamma / maxTilt));
+
+  // For beta, we need to handle the phone orientation
+  // When phone is upright (beta ≈ 90), gravity should be downward
+  // When tilted forward (beta > 90), gravity should increase downward
+  // When tilted backward (beta < 90), gravity should reverse upward
+
+  // Adjust beta relative to upright position (90 degrees)
+  const betaFromUpright = beta - 90;
+  const normalizedBeta = Math.max(-1, Math.min(1, betaFromUpright / maxTilt));
+
+  // Calculate gravity components
+  // X component: based on left/right tilt
+  const gravityX = normalizedGamma * PHYSICS.GRAVITY;
+
+  // Y component: based on forward/back tilt
+  // When upright (normalizedBeta = 0), gravity is normal (positive Y)
+  // When tilted forward (normalizedBeta > 0), gravity increases
+  // When tilted backward (normalizedBeta < 0), gravity decreases or reverses
+  const gravityY = PHYSICS.GRAVITY * (1 + normalizedBeta);
+
+  // Update engine gravity
+  engine.gravity.x = gravityX;
+  engine.gravity.y = gravityY;
+}
+
+// Get gyroscope status
+export function getGyroscopeStatus() {
+  return {
+    available: typeof window.DeviceOrientationEvent !== 'undefined',
+    enabled: gyroscopeEnabled,
+    permissionGranted: gyroscopePermissionGranted
+  };
+}
+
 // Create walls (NO TOP WALL - balls spawn from above)
 export function createWalls(logicalWidth, logicalHeight) {
   const wallOptions = {
