@@ -37,6 +37,29 @@ const {
 // Initialize debug console first
 initDebugConsole();
 
+// Lock screen orientation to portrait (if supported)
+async function lockOrientation() {
+  try {
+    if (screen.orientation && screen.orientation.lock) {
+      await screen.orientation.lock('portrait');
+      console.log('✓ Screen locked to portrait mode');
+    } else {
+      console.log('Screen Orientation API not supported');
+    }
+  } catch (error) {
+    // Orientation lock can fail if not in fullscreen or not user-initiated
+    console.log('Could not lock orientation:', error.message);
+  }
+}
+
+// Attempt to lock orientation when page loads
+lockOrientation();
+
+// Try again when user interacts (some browsers require user gesture)
+document.addEventListener('touchstart', () => {
+  lockOrientation();
+}, { once: true });
+
 // Game logic (protected by try/catch)
 try {
   // Setup canvas

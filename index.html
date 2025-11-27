@@ -37,11 +37,65 @@
       top: 0;
       left: 0;
     }
+
+    /* Landscape orientation warning */
+    #orientation-warning {
+      display: none;
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background: #0f1115;
+      z-index: 9999;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      text-align: center;
+      padding: 20px;
+      box-sizing: border-box;
+    }
+
+    #orientation-warning .icon {
+      font-size: 80px;
+      margin-bottom: 20px;
+      animation: rotate 2s ease-in-out infinite;
+    }
+
+    #orientation-warning .message {
+      font-size: 24px;
+      font-weight: bold;
+      margin-bottom: 10px;
+    }
+
+    #orientation-warning .submessage {
+      font-size: 16px;
+      color: #999;
+    }
+
+    @keyframes rotate {
+      0%, 100% { transform: rotate(0deg); }
+      50% { transform: rotate(90deg); }
+    }
+
+    /* Show warning in landscape mode */
+    @media (orientation: landscape) and (max-height: 600px) {
+      #orientation-warning {
+        display: flex;
+      }
+    }
   </style>
 </head>
 
 <body>
   <canvas id="game"></canvas>
+
+  <!-- Orientation warning overlay -->
+  <div id="orientation-warning">
+    <div class="icon">📱</div>
+    <div class="message">Please rotate your device</div>
+    <div class="submessage">This game is designed for portrait mode</div>
+  </div>
 
   <!-- Matter.js Physics Engine -->
   <script src="https://cdnjs.cloudflare.com/ajax/libs/matter-js/0.19.0/matter.min.js"></script>
