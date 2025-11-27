@@ -3,6 +3,7 @@
   "short_name": "Hello",
   "start_url": "./index.html",
   "display": "standalone",
+  "orientation": "portrait",
   "background_color": "#0f1115",
   "theme_color": "#0f1115",
   "icons": [
